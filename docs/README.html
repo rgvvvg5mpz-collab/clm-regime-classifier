@@ -55,7 +55,8 @@ regimes below; Reg S-P and Reg S-ID messages are out-of-class samples that belon
 <tr><td>7-way linear probe</td><td class="num">0.955</td><td class="num">0.747</td><td class="num">0.720</td></tr>
 <tr><td>CLM-8B zero-shot (published heads)</td><td class="num">0.064</td><td class="num">0.080</td><td class="num">0.077</td></tr>
 </table></div>
-<p>The 5-way OOD numbers are higher mainly because the two hardest regimes are no longer scored: the 7-way model's own
+<p>Accuracy and macro-averaged precision / recall for every run, plus per-class tables, are in
+<a href="../Tests/METRICS.md">Tests/METRICS.md</a> (regenerated with the reports). The 5-way OOD numbers are higher mainly because the two hardest regimes are no longer scored: the 7-way model's own
 predictions collapsed to the same five classes do as well (third row). On the out-of-class rows the 5-way model correctly
 stays silent 87% (hard) / 80% (low/medium) of the time; the false flags are mostly identity-theft reports read as
 complaints.</p>

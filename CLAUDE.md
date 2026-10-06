@@ -26,7 +26,7 @@ The negative class is always first; `INSTRUCTIONS` is shared so cached state emb
 - `regime_clf/inference.py`: production API (`RegimeClassifier.classify(texts, unit=)`) + CLI. Negative class, label list and speaker masks come from the checkpoint (`UNIT_CLASSES` lists positives only; the negative is added at load).
 - `regime_clf/ood/`: `SPEC.md` (generation spec incl. difficulty definitions), `raw_*.jsonl` (5 Fable agents × 105), `build_ood.py [--parts … --out …]` → `ood_hard_v1.jsonl` (default) / `ood_low_medium_v1.jsonl`.
 - `app/`: FastAPI chat (`server.py`), providers (`llm.py`: Anthropic SDK + OpenAI-compatible), `config.yaml` (`classifier.checkpoint` picks the model; default 5-way), `static/`, `mock_llm.py`. `/api/config` returns the checkpoint's `labels` and `unit_classes`; the front end adapts. Writes `app/data/turns.jsonl` and `app/data/feedback.jsonl` (FP/FN flags).
-- `Tests/<YYYY-MM-DD>_<name>/`: one folder per run, each with `report.html` and an optional hand-written `notes.html` (interpretation); `Tests/make_reports.py` regenerates all reports + `Tests/index.html`.
+- `Tests/<YYYY-MM-DD>_<name>/`: one folder per run, each with `report.html` and an optional hand-written `notes.html` (interpretation); `Tests/make_reports.py` regenerates all reports, `Tests/index.html` and `Tests/METRICS.md` (accuracy / macro precision / recall / F1 per run, per-class tables). Quote numbers from METRICS.md rather than recomputing.
 - `CLM/` (gitignored): clone of github.com/Contrastive-LM/CLM, installed `--no-deps -e`.
 
 ## Commands
