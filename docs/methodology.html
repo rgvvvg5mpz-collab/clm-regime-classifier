@@ -87,7 +87,8 @@ consistent with bf16-on-MPS vs vLLM numerics.</div>
   <li><i>adversarial_confuser</i>: compliant text full of trigger vocabulary; boundary cases where one regime dominates; negation, hypotheticals, sarcasm, quoted speech;</li>
   <li><i>novel_scenario</i>: tokenized ETPs, structured notes, annuities, 529/HSA, trusts and POAs, estates, expats, AI-specific failures.</li></ul>
   Every row carries a one-sentence rationale that names the nearest competing class. The generation spec is <code>regime_clf/ood/SPEC.md</code>.</li>
-<li><b>OOD integrity checks</b> (<code>ood/build_ood.py</code>): schema, label/speaker consistency, no real firm names, no exact matches with any split, and near-duplicates against train via character 3–5-gram TF-IDF cosine (threshold 0.80). Result: 0 rows dropped; median nearest-train similarity 0.30, p95 0.46.</li>
+<li><b>Out-of-distribution low/medium set</b>: 210 further messages from two more Fable agents, one per difficulty (105 each, 15 per class, spread evenly over the same three axes). <i>Low</i> means the regime is stated almost outright with no competing regime; <i>medium</i> means the signal is clear but implicit (a grievance without the word “complaint”, PII given in passing). Definitions are in <code>SPEC.md</code>. The purpose is to separate <i>distribution shift</i> from <i>inferential difficulty</i>.</li>
+<li><b>OOD integrity checks</b> (<code>ood/build_ood.py</code>): schema, label/speaker consistency, no real firm names, no exact matches with any split, and near-duplicates against train via character 3–5-gram TF-IDF cosine (threshold 0.80). Result: 0 rows dropped from either set; median nearest-train similarity 0.30 (hard) and 0.28 (low/medium); no overlap between the two OOD sets.</li>
 <li><b>Speaker masking</b>: optionally restricts the softmax to the classes valid for the speaker. In-distribution it changes nothing, because the model already never crosses speakers. On OOD it adds +0.004 macro-F1.</li>
 <li><b>Uncertainty</b>: 95% percentile bootstrap (1,000 resamples) for accuracy and macro-F1.</li>
 </ul>
@@ -98,13 +99,14 @@ consistent with bf16-on-MPS vs vLLM numerics.</div>
 <li><b>Generalization is the real limit</b>: OOD macro-F1 is 0.732 [0.680, 0.778]. The probe scores 0.747 [0.697, 0.790], and the intervals overlap, so neither is significantly better on new text. Very-hard items score 68% vs 77% for hard ones.</li>
 <li><b>Error structure on OOD</b>: Reg S-ID → Reg S-P (19/45 S-ID rows); Reg BI → FINRA 2210 (14/45); violations predicted compliant (22/270, mostly S-P, 17a-3/4 and BI). FINRA 4530 holds up best (F1 0.91).</li>
 <li><b>Part of the S-ID/S-P gap is a labelling convention</b>. One Fable agent noted that the training data labels some identity-verification situations (e.g. an elderly parent handing a verification code to a caller) as Reg S-P, whereas the OOD set treats verification bypass and takeover as Reg S-ID. A compliance SME needs to settle that boundary before anyone retrains.</li>
+<li><b>Difficulty is not what drives the OOD drop.</b> On the low/medium set the fine-tuned heads score 0.748 [0.688, 0.801]: low rows 73.3%, medium 80.0%, versus hard 76.9% and very hard 68.0%. Rows that state the regime outright are no easier for the model than rows that require inference. The same two confusions dominate, at high confidence: Reg S-ID → S-P or 4530 (23 of 30 S-ID rows wrong), and short direct Reg BI recommendations → FINRA 2210 (7 of 30; e.g. “Buy the Copperleaf Dividend Fund. For your situation, it's the right call.” at p = 0.99). Training Reg BI rows are long and hedged, so the model learned the template style rather than the concept. The probe shows the same pattern (low 69.5%, medium 78.1%).</li>
 <li><b>Zero-shot doesn't work</b> for this taxonomy (macro-F1 ≤ 0.24 across all variants).</li>
 <li><b>Embedding geometry</b>: because every state ends with the same instruction, raw last-token embeddings of different messages sit at cosine ≈ 0.997. They can't be used for similarity or deduplication without the heads.</li>
 </ol>
 
 <h2>8. Limitations and threats to validity</h2>
 <ul>
-<li>Both train and test data are synthetic. The OOD set is also synthetic, from a different generator, so it measures robustness to <i>style and scenario shift</i>, not to real client traffic.</li>
+<li>Both train and test data are synthetic. The OOD sets are also synthetic, from a different generator, so they measure robustness to <i>style and scenario shift</i>, not to real client traffic.</li>
 <li>OOD labels are Fable's, and only spot-checked, not SME-adjudicated. Some disagreement with the training labels reflects convention rather than model error (finding 4).</li>
 <li>Single label per message. Real messages can implicate two regimes; the OOD set deliberately excluded genuinely co-equal cases.</li>
 <li>One seed, one hardware platform. Reported latency is for an Apple M5 Pro; CUDA + vLLM will differ.</li>
@@ -119,6 +121,8 @@ consistent with bf16-on-MPS vs vLLM numerics.</div>
 ../.venv/bin/python evaluate.py --data data/test.jsonl --out ../Tests/&lt;date&gt;_in_distribution/eval_test
 ../.venv/bin/python ood/build_ood.py
 ../.venv/bin/python evaluate.py --data ood/ood_hard_v1.jsonl --out ../Tests/&lt;date&gt;_ood_fable_hard
+../.venv/bin/python ood/build_ood.py --parts raw_low.jsonl raw_medium.jsonl --out ood_low_medium_v1.jsonl
+../.venv/bin/python evaluate.py --data ood/ood_low_medium_v1.jsonl --out ../Tests/&lt;date&gt;_ood_fable_low_medium
 ../.venv/bin/python zero_shot_variants.py ../Tests/&lt;date&gt;_in_distribution/zero_shot_variants.json
 cd .. &amp;&amp; .venv/bin/python Tests/make_reports.py</code></pre>
 </div></body></html>

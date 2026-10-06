@@ -1,0 +1,15 @@
+<div class="note warn"><b>Read this first.</b> Making the signal more explicit did not help. The low-difficulty rows
+(regime stated almost outright) score <b>73.3%</b>, below the medium rows (80.0%) and about the same as the hard set
+(76.9% hard / 68.0% very hard). The errors are the same two as on the hard set, and they happen with high confidence:</div>
+<ul>
+<li><b>Reg S-ID collapses (F1 0.38).</b> Only 7 of 30 identity-theft rows are labelled S-ID; 12 go to Reg S-P and 8 to
+FINRA 4530. Even “I think someone has taken over my account” is read as a privacy matter or a complaint.</li>
+<li><b>Short, direct Reg BI recommendations are read as FINRA 2210.</b> “Buy the Copperleaf Dividend Fund. For your
+situation, it's the right call.” is predicted 2210 at 0.99. The training Reg BI rows are long and hedged, so the
+model learned that <i>style</i>, and a blunt recommendation looks like promissory 2210 language to it.</li>
+<li>Violations predicted compliant: 10 of 180, fewer than on the hard set (22 of 270), so the clean/violation boundary is
+not the main problem; it's which regime.</li>
+</ul>
+<p>The linear probe is slightly worse here (0.720 vs 0.748) and better on the hard set; the CIs overlap both times.
+Together the two OOD runs say the model keys on the surface form of the training templates more than on the
+concepts, so the fix is training data with more varied phrasing (developer guide, P1 #5), not a harder test.</p>

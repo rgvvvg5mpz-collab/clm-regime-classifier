@@ -1,0 +1,118 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>OOD fable low medium</title>
+<style>/* Shared stylesheet for docs/*.html and Tests/**/report.html (inlined into reports). */
+:root {
+  --bg: #fbfbf9; --surface: #ffffff; --text: #1c1c1a; --muted: #686862; --border: #e4e3de;
+  --accent: #2f5bd3; --accent-soft: #e8eefc; --good: #1f7a3a; --good-soft: #e5f3e9;
+  --bad: #b3261e; --bad-soft: #fbe9e7; --warn: #8a5a00; --warn-soft: #fbf1dc; --code: #f1f0ec;
+  --heat: 47, 91, 211;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #151514; --surface: #1d1d1b; --text: #ecebe6; --muted: #9c9b95; --border: #33322e;
+    --accent: #87a5f2; --accent-soft: #1f2840; --good: #7fd197; --good-soft: #16301e;
+    --bad: #f2a29b; --bad-soft: #3a1a18; --warn: #f0c46a; --warn-soft: #3a2c10; --code: #272623;
+    --heat: 135, 165, 242;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #151514; --surface: #1d1d1b; --text: #ecebe6; --muted: #9c9b95; --border: #33322e;
+  --accent: #87a5f2; --accent-soft: #1f2840; --good: #7fd197; --good-soft: #16301e;
+  --bad: #f2a29b; --bad-soft: #3a1a18; --warn: #f0c46a; --warn-soft: #3a2c10; --code: #272623;
+  --heat: 135, 165, 242;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+.wrap { max-width: 980px; margin: 0 auto; padding: 32px 16px 64px; }
+nav.top { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; margin-bottom: 28px;
+  padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+nav.top a { color: var(--muted); text-decoration: none; }
+nav.top a.on, nav.top a:hover { color: var(--text); }
+h1 { font-size: 28px; line-height: 1.25; margin: 0 0 6px; letter-spacing: -0.01em; }
+h2 { font-size: 20px; margin: 40px 0 10px; }
+h3 { font-size: 16px; margin: 24px 0 8px; }
+p, li { max-width: 74ch; }
+a { color: var(--accent); }
+.lede { color: var(--muted); font-size: 16px; margin: 0 0 20px; }
+code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+code { background: var(--code); padding: 1px 5px; border-radius: 4px; }
+pre { background: var(--code); padding: 12px 14px; border-radius: 8px; overflow-x: auto; line-height: 1.5; }
+pre code { background: none; padding: 0; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; margin: 8px 0 16px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.scroll { overflow-x: auto; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 16px 0; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+.card .k { font-size: 12px; color: var(--muted); }
+.card .v { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.card .s { font-size: 12px; color: var(--muted); }
+.pill { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 999px; padding: 1px 9px; }
+.pill.good { background: var(--good-soft); color: var(--good); }
+.pill.bad { background: var(--bad-soft); color: var(--bad); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.note { background: var(--accent-soft); border-radius: 8px; padding: 12px 14px; margin: 16px 0; }
+.note.warn { background: var(--warn-soft); }
+.muted { color: var(--muted); }
+.heat td.cell { text-align: center; min-width: 44px; font-variant-numeric: tabular-nums; }
+.heat th.rot { font-size: 11px; text-transform: none; letter-spacing: 0; }
+figure { margin: 16px 0; }
+figure svg { width: 100%; height: auto; display: block; }
+figcaption { font-size: 13px; color: var(--muted); margin-top: 6px; }
+.bar { height: 8px; background: var(--code); border-radius: 4px; overflow: hidden; min-width: 80px; }
+.bar > span { display: block; height: 100%; background: var(--accent); }
+@media (max-width: 600px) {
+  .wrap { padding: 20px 16px 48px; }
+  h1 { font-size: 23px; }
+  th, td { padding: 6px 6px; }
+}
+</style></head><body><div class="wrap">
+<nav class="top"><a href="../../Tests/index.html">All test runs</a><a href="../../docs/README.html">Docs</a>
+<a href="../../docs/methodology.html">Methodology</a><a href="../../docs/architecture.html">Architecture</a></nav>
+<h1>OOD validation, low / medium difficulty (Fable-generated) — 2026-10-05</h1>
+<p class="lede">210 messages written by Claude Fable 5.1 to be out of distribution:
+105 low, 105 medium difficulty; axes adversarial_confuser 70, novel_scenario 70, register_shift 70;
+30 per class. Median char-n-gram similarity to the nearest training text: 0.28; max 0.63 (rows ≥ 0.80 are dropped as near-duplicates). Spec: <code>regime_clf/ood/SPEC.md</code>.</p>
+<div class="cards">
+<div class="card"><div class="k">Macro-F1 (CLM fine-tuned, unit-masked)</div><div class="v">0.748</div><div class="s">95% CI 0.688–0.801</div></div>
+<div class="card"><div class="k">Accuracy</div><div class="v">76.7%</div><div class="s">vs 97.9% in-distribution</div></div>
+<div class="card"><div class="k">Linear probe</div><div class="v">0.720</div><div class="s">macro-F1, same embeddings</div></div>
+<div class="card"><div class="k">Missed violations</div><div class="v">10</div><div class="s">of 180 non-compliant → predicted compliant</div></div>
+</div>
+<div class="note warn"><b>Read this first.</b> Making the signal more explicit did not help. The low-difficulty rows
+(regime stated almost outright) score <b>73.3%</b>, below the medium rows (80.0%) and about the same as the hard set
+(76.9% hard / 68.0% very hard). The errors are the same two as on the hard set, and they happen with high confidence:</div>
+<ul>
+<li><b>Reg S-ID collapses (F1 0.38).</b> Only 7 of 30 identity-theft rows are labelled S-ID; 12 go to Reg S-P and 8 to
+FINRA 4530. Even “I think someone has taken over my account” is read as a privacy matter or a complaint.</li>
+<li><b>Short, direct Reg BI recommendations are read as FINRA 2210.</b> “Buy the Copperleaf Dividend Fund. For your
+situation, it's the right call.” is predicted 2210 at 0.99. The training Reg BI rows are long and hedged, so the
+model learned that <i>style</i>, and a blunt recommendation looks like promissory 2210 language to it.</li>
+<li>Violations predicted compliant: 10 of 180, fewer than on the hard set (22 of 270), so the clean/violation boundary is
+not the main problem; it's which regime.</li>
+</ul>
+<p>The linear probe is slightly worse here (0.720 vs 0.748) and better on the hard set; the CIs overlap both times.
+Together the two OOD runs say the model keys on the surface form of the training templates more than on the
+concepts, so the fix is training data with more varied phrasing (developer guide, P1 #5), not a harder test.</p>
+
+<h2>Methods</h2><div class='scroll'><table><tr><th>Method</th><th class='num'>Accuracy</th><th class='num'>Macro-F1</th><th class='num'>95% CI (bootstrap)</th></tr><tr><td>CLM-8B fine-tuned heads (unit-masked)</td><td class='num'>76.7%</td><td class='num'><b>0.748</b></td><td class='num'><span class="muted">[0.688, 0.801]</span></td></tr><tr><td>CLM-8B fine-tuned heads</td><td class='num'>76.2%</td><td class='num'><b>0.743</b></td><td class='num'><span class="muted">[0.682, 0.797]</span></td></tr><tr><td>Linear probe on Qwen3-8B embeddings</td><td class='num'>73.8%</td><td class='num'><b>0.720</b></td><td class='num'><span class="muted">[0.656, 0.773]</span></td></tr><tr><td>CLM-8B zero-shot (reference heads)</td><td class='num'>15.7%</td><td class='num'><b>0.077</b></td><td class='num'><span class="muted">[0.044, 0.115]</span></td></tr></table></div>
+<h2>Per class</h2><div class='scroll'><table><tr><th>Class</th><th class='num'>Precision</th><th class='num'>Recall</th><th class='num'>CLM-8B fine-tuned heads F1</th><th class='num'>Linear probe on Qwen3-8B embeddings F1</th><th class='num'>n</th></tr><tr><td>Compliant</td><td class='num'>0.737</td><td class='num'>0.933</td><td class='num'>0.824</td><td class='num'>0.817</td><td class='num'>30</td></tr><tr><td>FINRA 2210</td><td class='num'>0.794</td><td class='num'>0.900</td><td class='num'>0.844</td><td class='num'>0.769</td><td class='num'>30</td></tr><tr><td>Reg BI</td><td class='num'>1.000</td><td class='num'>0.733</td><td class='num'>0.846</td><td class='num'>0.776</td><td class='num'>30</td></tr><tr><td>FINRA 4530</td><td class='num'>0.730</td><td class='num'>0.900</td><td class='num'>0.806</td><td class='num'>0.836</td><td class='num'>30</td></tr><tr><td>SEC 17a-3/4</td><td class='num'>0.889</td><td class='num'>0.800</td><td class='num'>0.842</td><td class='num'>0.794</td><td class='num'>30</td></tr><tr><td>Reg S-P</td><td class='num'>0.578</td><td class='num'>0.867</td><td class='num'>0.693</td><td class='num'>0.646</td><td class='num'>30</td></tr><tr><td>Reg S-ID</td><td class='num'>1.000</td><td class='num'>0.233</td><td class='num'>0.378</td><td class='num'>0.400</td><td class='num'>30</td></tr></table></div>
+<h2>Confusion matrix — CLM fine-tuned, unit-masked</h2><div class='scroll'><table class='heat'><tr><th class='rot'>gold ↓ / predicted →</th><th class='rot num'>Compliant</th><th class='rot num'>FINRA 2210</th><th class='rot num'>Reg BI</th><th class='rot num'>FINRA 4530</th><th class='rot num'>SEC 17a-3/4</th><th class='rot num'>Reg S-P</th><th class='rot num'>Reg S-ID</th></tr><tr><th class='rot'>Compliant</th><td class='cell' style='background:rgba(var(--heat),0.93);color:#fff;'>28</td><td class='cell' style='background:rgba(var(--heat),0.00);'>0</td><td class='cell' style='background:rgba(var(--heat),0.00);'>0</td><td class='cell' style='background:rgba(var(--heat),0.03);'>1</td><td class='cell' style='background:rgba(var(--heat),0.03);'>1</td><td class='cell' style='background:rgba(var(--heat),0.00);'>0</td><td class='cell' style='background:rgba(var(--heat),0.00);'>0</td></tr><tr><th class='rot'>FINRA 2210</th><td class='cell' style='background:rgba(var(--heat),0.10);'>3</td><td class='cell' style='background:rgba(var(--heat),0.90);color:#fff;'>27</td><td class='cell' style='background:rgba(var(--heat),0.00);'>0</td><td class='cell' style='background:rgba(var(--heat),0.00);'>0</td><td class='cell' style='background:rgba(var(--heat),0.00);'>0</td><td class='cell' style='background:rgba(var(--heat),0.00);'>0</td><td class='cell' style='background:rgba(var(--heat),0.00);'>0</td></tr><tr><th class='rot'>Reg BI</th><td class='cell' style='background:rgba(var(--heat),0.03);'>1</td><td class='cell' style='background:rgba(var(--heat),0.23);'>7</td><td class='cell' style='background:rgba(var(--heat),0.73);color:#fff;'>22</td><td class='cell' style='background:rgba(var(--heat),0.00);'>0</td><td class='cell' style='background:rgba(var(--heat),0.00);'>0</td><td class='cell' style='background:rgba(var(--heat),0.00);'>0</td><td class='cell' style='background:rgba(var(--heat),0.00);'>0</td></tr><tr><th class='rot'>FINRA 4530</th><td class='cell' style='background:rgba(var(--heat),0.00);'>0</td><td class='cell' style='background:rgba(var(--heat),0.00);'>0</td><td class='cell' style='background:rgba(var(--heat),0.00);'>0</td><td class='cell' style='background:rgba(var(--heat),0.90);color:#fff;'>27</td><td class='cell' style='background:rgba(var(--heat),0.00);'>0</td><td class='cell' style='background:rgba(var(--heat),0.10);'>3</td><td class='cell' style='background:rgba(var(--heat),0.00);'>0</td></tr><tr><th class='rot'>SEC 17a-3/4</th><td class='cell' style='background:rgba(var(--heat),0.07);'>2</td><td class='cell' style='background:rgba(var(--heat),0.00);'>0</td><td class='cell' style='background:rgba(var(--heat),0.00);'>0</td><td class='cell' style='background:rgba(var(--heat),0.00);'>0</td><td class='cell' style='background:rgba(var(--heat),0.80);color:#fff;'>24</td><td class='cell' style='background:rgba(var(--heat),0.13);'>4</td><td class='cell' style='background:rgba(var(--heat),0.00);'>0</td></tr><tr><th class='rot'>Reg S-P</th><td class='cell' style='background:rgba(var(--heat),0.10);'>3</td><td class='cell' style='background:rgba(var(--heat),0.00);'>0</td><td class='cell' style='background:rgba(var(--heat),0.00);'>0</td><td class='cell' style='background:rgba(var(--heat),0.03);'>1</td><td class='cell' style='background:rgba(var(--heat),0.00);'>0</td><td class='cell' style='background:rgba(var(--heat),0.87);color:#fff;'>26</td><td class='cell' style='background:rgba(var(--heat),0.00);'>0</td></tr><tr><th class='rot'>Reg S-ID</th><td class='cell' style='background:rgba(var(--heat),0.03);'>1</td><td class='cell' style='background:rgba(var(--heat),0.00);'>0</td><td class='cell' style='background:rgba(var(--heat),0.00);'>0</td><td class='cell' style='background:rgba(var(--heat),0.27);'>8</td><td class='cell' style='background:rgba(var(--heat),0.07);'>2</td><td class='cell' style='background:rgba(var(--heat),0.40);'>12</td><td class='cell' style='background:rgba(var(--heat),0.23);'>7</td></tr></table></div>
+<h2>By difficulty</h2><div class='scroll'><table><tr><th>difficulty</th><th class='num'>n</th><th class='num'>CLM-8B fine-tuned heads</th><th class='num'>CLM-8B fine-tuned heads</th><th class='num'>Linear probe on Qwen3-8B embeddings</th></tr><tr><td>low</td><td class='num'>105</td><td class='num'>73.3%</td><td class='num'>73.3%</td><td class='num'>69.5%</td></tr><tr><td>medium</td><td class='num'>105</td><td class='num'>80.0%</td><td class='num'>79.0%</td><td class='num'>78.1%</td></tr></table></div>
+<h2>By OOD axis</h2><div class='scroll'><table><tr><th>ood_axis</th><th class='num'>n</th><th class='num'>CLM-8B fine-tuned heads</th><th class='num'>CLM-8B fine-tuned heads</th><th class='num'>Linear probe on Qwen3-8B embeddings</th></tr><tr><td>adversarial_confuser</td><td class='num'>70</td><td class='num'>74.3%</td><td class='num'>72.9%</td><td class='num'>75.7%</td></tr><tr><td>novel_scenario</td><td class='num'>70</td><td class='num'>74.3%</td><td class='num'>74.3%</td><td class='num'>71.4%</td></tr><tr><td>register_shift</td><td class='num'>70</td><td class='num'>81.4%</td><td class='num'>81.4%</td><td class='num'>74.3%</td></tr></table></div>
+<h2>By speaker</h2><div class='scroll'><table><tr><th>unit</th><th class='num'>n</th><th class='num'>CLM-8B fine-tuned heads</th><th class='num'>CLM-8B fine-tuned heads</th><th class='num'>Linear probe on Qwen3-8B embeddings</th></tr><tr><td>assistant_response</td><td class='num'>72</td><td class='num'>84.7%</td><td class='num'>83.3%</td><td class='num'>77.8%</td></tr><tr><td>client_message</td><td class='num'>138</td><td class='num'>72.5%</td><td class='num'>72.5%</td><td class='num'>71.7%</td></tr></table></div>
+<h2>Sample errors (49 total; first 25)</h2>
+<div class="scroll"><table><tr><th>Text</th><th>Gold</th><th>Predicted</th><th>Difficulty / axis</th></tr><tr><td>WHERE IS THE STATEMENTS TAB. EVERY TIME I CLICK IT I GET SENT BACK TO THE HOMEPAGE</td><td>Compliant</td><td><span class='pill bad'>FINRA 4530</span> <span class='muted'>0.57</span></td><td class='muted'>low<br>register_shift</td></tr><tr><td>We&#x27;re expecting a baby in March. Can a custodial account be opened for a child who isn&#x27;t born yet, or do we wait until we have a Social Security number for them?</td><td>Compliant</td><td><span class='pill bad'>SEC 17a-3/4</span> <span class='muted'>0.71</span></td><td class='muted'>low<br>novel_scenario</td></tr><tr><td>Buy the Copperleaf Dividend Fund. For your situation, it&#x27;s the right call.</td><td>Reg BI</td><td><span class='pill bad'>FINRA 2210</span> <span class='muted'>0.99</span></td><td class='muted'>low<br>register_shift</td></tr><tr><td>No complaint about your current fund at all, but for you I&#x27;d recommend swapping it for our proprietary Pennycress Core Portfolio.</td><td>Reg BI</td><td><span class='pill bad'>FINRA 2210</span> <span class='muted'>0.96</span></td><td class='muted'>low<br>adversarial_confuser</td></tr><tr><td>Profile verified. Given what&#x27;s in it, my recommendation is to sell your municipal bonds and buy the Hollowbrook High Yield Fund.</td><td>Reg BI</td><td><span class='pill bad'>Compliant</span> <span class='muted'>0.94</span></td><td class='muted'>low<br>adversarial_confuser</td></tr><tr><td>Since you just started teaching and told me you want to retire at 60, go with our Quillhaven 403(b) annuity instead of the district&#x27;s default plan.</td><td>Reg BI</td><td><span class='pill bad'>FINRA 2210</span> <span class='muted'>0.70</span></td><td class='muted'>low<br>novel_scenario</td></tr><tr><td>With the $80,000 you inherited from your aunt, I&#x27;d recommend you buy the Thistledown REIT Fund for the income.</td><td>Reg BI</td><td><span class='pill bad'>FINRA 2210</span> <span class='muted'>1.00</span></td><td class='muted'>low<br>novel_scenario</td></tr><tr><td>Given your retirement from nursing in June, I recommend you convert the whole balance to the Pennycress Fixed Annuity we offer in-house.</td><td>Reg BI</td><td><span class='pill bad'>FINRA 2210</span> <span class='muted'>1.00</span></td><td class='muted'>low<br>novel_scenario</td></tr><tr><td>can u just text me on my cell instead, 000-555-0147, way easier than this chat thing</td><td>SEC 17a-3/4</td><td><span class='pill bad'>Reg S-P</span> <span class='muted'>0.77</span></td><td class='muted'>low<br>register_shift</td></tr><tr><td>Account update:
+- New phone: 000-555-0199
+- New employer: Fernmoor Dental Group
+- Please update your files</td><td>SEC 17a-3/4</td><td><span class='pill bad'>Reg S-P</span> <span class='muted'>0.69</span></td><td class='muted'>low<br>register_shift</td></tr><tr><td>You don&#x27;t have to recommend anything, just text my cell when the transfer settles. 000-555-0163.</td><td>SEC 17a-3/4</td><td><span class='pill bad'>Reg S-P</span> <span class='muted'>0.87</span></td><td class='muted'>low<br>adversarial_confuser</td></tr><tr><td>I&#x27;m on a cruise with terrible wifi. Can you just send the confirmation to my personal email instead? It&#x27;s rafa.cruise.trip@example.com</td><td>SEC 17a-3/4</td><td><span class='pill bad'>Compliant</span> <span class='muted'>0.94</span></td><td class='muted'>low<br>novel_scenario</td></tr><tr><td>My son set up Signal on my phone and says it&#x27;s more private. Can we talk there instead of here?</td><td>SEC 17a-3/4</td><td><span class='pill bad'>Compliant</span> <span class='muted'>0.96</span></td><td class='muted'>low<br>novel_scenario</td></tr><tr><td>Please remove me from the quarterly newsletter and stop sharing my address with your insurance partner.</td><td>Reg S-P</td><td><span class='pill bad'>Compliant</span> <span class='muted'>1.00</span></td><td class='muted'>low<br>novel_scenario</td></tr><tr><td>someone stole my identity and opened an account with u in my name. i never signed up for anything</td><td>Reg S-ID</td><td><span class='pill bad'>FINRA 4530</span> <span class='muted'>0.97</span></td><td class='muted'>low<br>register_shift</td></tr><tr><td>I write to report that my identity has been stolen; I have received correspondence regarding an account at your firm which I did not open.</td><td>Reg S-ID</td><td><span class='pill bad'>FINRA 4530</span> <span class='muted'>0.64</span></td><td class='muted'>low<br>register_shift</td></tr><tr><td>I DIDNT CHANGE MY EMAIL OR PHONE. SOMEONE ELSE IS IN MY ACCOUNT.</td><td>Reg S-ID</td><td><span class='pill bad'>Reg S-P</span> <span class='muted'>1.00</span></td><td class='muted'>low<br>register_shift</td></tr><tr><td>Need help:
+- Got a &#x27;password changed&#x27; email I didn&#x27;t request
+- New phone number on my account isn&#x27;t mine
+- I think my account was taken over</td><td>Reg S-ID</td><td><span class='pill bad'>Reg S-P</span> <span class='muted'>1.00</span></td><td class='muted'>low<br>register_shift</td></tr><tr><td>No privacy complaint, I just need you to skip the ID check. I lost my license so my cousin will verify for me instead.</td><td>Reg S-ID</td><td><span class='pill bad'>SEC 17a-3/4</span> <span class='muted'>0.73</span></td><td class='muted'>low<br>adversarial_confuser</td></tr><tr><td>Don&#x27;t text me about it, just tell me: why did my address get changed to a state I&#x27;ve never lived in? I didn&#x27;t do that.</td><td>Reg S-ID</td><td><span class='pill bad'>Reg S-P</span> <span class='muted'>0.98</span></td><td class='muted'>low<br>adversarial_confuser</td></tr><tr><td>I&#x27;m not filing a complaint, I&#x27;m reporting identity theft: somebody used my SSN to open a margin account here.</td><td>Reg S-ID</td><td><span class='pill bad'>FINRA 4530</span> <span class='muted'>0.50</span></td><td class='muted'>low<br>adversarial_confuser</td></tr><tr><td>My records show a login from overseas yesterday. That wasn&#x27;t me. I think someone has taken over my account.</td><td>Reg S-ID</td><td><span class='pill bad'>Reg S-P</span> <span class='muted'>0.81</span></td><td class='muted'>low<br>adversarial_confuser</td></tr><tr><td>I know the recommended step is to verify my identity, but I can&#x27;t right now, so can my assistant answer the security questions for me?</td><td>Reg S-ID</td><td><span class='pill bad'>Compliant</span> <span class='muted'>0.75</span></td><td class='muted'>low<br>adversarial_confuser</td></tr><tr><td>I got a letter from you congratulating me on my new account. I&#x27;ve never heard of your firm. Someone is using my name.</td><td>Reg S-ID</td><td><span class='pill bad'>FINRA 4530</span> <span class='muted'>0.96</span></td><td class='muted'>low<br>novel_scenario</td></tr><tr><td>I&#x27;m the executor of my uncle&#x27;s estate. Someone changed the phone number on his brokerage account two days after he died. That&#x27;s an account takeover.</td><td>Reg S-ID</td><td><span class='pill bad'>FINRA 4530</span> <span class='muted'>1.00</span></td><td class='muted'>low<br>novel_scenario</td></tr></table></div>
+<h2>Files</h2><ul><li><code>metrics.json</code>: all methods, slices, CIs</li>
+<li><code>predictions.jsonl</code>: every row with gold, prediction, Fable's rationale</li>
+<li><code>notes.html</code>: interpretation (optional)</li>
+<li>Data: <code>ood/ood_low_medium_v1.jsonl</code> (built by <code>regime_clf/ood/build_ood.py</code>)</li></ul></div></body></html>

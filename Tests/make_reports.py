@@ -159,12 +159,27 @@ heads initialised from <code>CLM_v0.1-8B.pt</code>. Checkpoint = epoch with best
 
 
 def ood(d: str) -> dict:
+    """OOD validation run. Title/lede come from the data; an optional notes.html in the run
+    folder is inserted verbatim after the summary cards (interpretation lives there, not here)."""
+    import collections
+    import statistics
     M = json.load(open(os.path.join(d, "metrics.json")))
     best = M["clm_finetuned_unit_masked"]
     preds = [json.loads(l) for l in open(os.path.join(d, "predictions.jsonl"))]
+    diff = collections.Counter(p.get("difficulty") for p in preds)
+    axes = collections.Counter(p.get("ood_axis") for p in preds)
+    cos = [p["max_cos_to_train"] for p in preds if "max_cos_to_train" in p]
+    diff_label = " / ".join(k for k, _ in sorted(diff.items(), key=lambda kv: ["low", "medium", "hard", "very_hard"].index(kv[0]) if kv[0] in ["low", "medium", "hard", "very_hard"] else 9))
+    short = os.path.basename(d).split("_", 1)[1].replace("_", " ").removeprefix("ood ")
+    date = os.path.basename(d)[:10]
+    title = f"OOD validation, {diff_label} difficulty (Fable-generated)"
+    notes_p = os.path.join(d, "notes.html")
+    notes = open(notes_p).read() if os.path.exists(notes_p) else ""
+    sim = (f" Median char-n-gram similarity to the nearest training text: {statistics.median(cos):.2f}; "
+           f"max {max(cos):.2f} (rows ≥ 0.80 are dropped as near-duplicates)." if cos else "")
     def slice_table(field: str) -> str:
         keys = [k for k, _ in METHODS if k in M and k != "clm_zero_shot"]
-        vals = sorted(M[keys[0]][field])
+        vals = sorted(M[keys[0]][field], key=lambda v: ["low", "medium", "hard", "very_hard"].index(v) if v in ["low", "medium", "hard", "very_hard"] else v)
         head = "".join(f"<th class='num'>{e(dict(METHODS)[k].split(' (')[0])}</th>" for k in keys)
         rows = "".join(f"<tr><td>{e(v)}</td><td class='num'>{M[keys[0]][field][v]['n']}</td>"
                        + "".join(f"<td class='num'>{pct(M[k][field][v]['accuracy'])}</td>" for k in keys) + "</tr>" for v in vals)
@@ -173,33 +188,33 @@ def ood(d: str) -> dict:
     err_rows = "".join(
         f"<tr><td>{e(p['text'][:260])}{'…' if len(p['text']) > 260 else ''}</td><td>{NAMES[p['label']]}</td>"
         f"<td><span class='pill bad'>{NAMES[p['pred']]}</span> <span class='muted'>{p['p_pred']:.2f}</span></td>"
-        f"<td class='muted'>{e(p['ood_axis'])}</td></tr>" for p in errs[:25])
-    body = f"""<h1>OOD hard validation (Fable-generated) — 2026-10-05</h1>
-<p class="lede">{M['n']} messages written by Claude Fable 5.1 to be out of distribution and hard: register shift,
-adversarial confusers and novel scenarios (105 each, 45 per class). Median char-n-gram similarity to the
-nearest training text: 0.30; nothing ≥ 0.80.</p>
+        f"<td class='muted'>{e(p.get('difficulty', ''))}<br>{e(p.get('ood_axis', ''))}</td></tr>" for p in errs[:25])
+    missed = sum(r[0] for r in best["confusion"][1:])
+    n_viol = M["n"] - M["label_counts"].get("compliant", 0)
+    body = f"""<h1>{e(title)} — {date}</h1>
+<p class="lede">{M['n']} messages written by Claude Fable 5.1 to be out of distribution:
+{", ".join(f"{v} {k}" for k, v in sorted(diff.items()))} difficulty; axes {", ".join(f"{k} {v}" for k, v in sorted(axes.items()))};
+{M['n'] // len(M['labels'])} per class.{sim} Spec: <code>regime_clf/ood/SPEC.md</code>.</p>
 <div class="cards">
 <div class="card"><div class="k">Macro-F1 (CLM fine-tuned, unit-masked)</div><div class="v">{best['macro_f1']:.3f}</div><div class="s">95% CI {best['macro_f1_95ci'][0]:.3f}–{best['macro_f1_95ci'][1]:.3f}</div></div>
 <div class="card"><div class="k">Accuracy</div><div class="v">{pct(best['accuracy'])}</div><div class="s">vs 97.9% in-distribution</div></div>
-<div class="card"><div class="k">Linear probe</div><div class="v">{M['linear_probe']['macro_f1']:.3f}</div><div class="s">CIs overlap: no significant difference</div></div>
-<div class="card"><div class="k">Missed violations</div><div class="v">{sum(r[0] for r in best['confusion'][1:])}</div><div class="s">of {M['n'] - M['label_counts']['compliant']} non-compliant → predicted compliant</div></div>
+<div class="card"><div class="k">Linear probe</div><div class="v">{M['linear_probe']['macro_f1']:.3f}</div><div class="s">macro-F1, same embeddings</div></div>
+<div class="card"><div class="k">Missed violations</div><div class="v">{missed}</div><div class="s">of {n_viol} non-compliant → predicted compliant</div></div>
 </div>
-<div class="note warn"><b>Read this first.</b> The in-distribution score (0.977) overstates real-world performance.
-On text that does not look like the templated training data, macro-F1 drops to about 0.73. The biggest failure is
-<b>Reg S-ID read as Reg S-P</b> (identity-theft red flags labelled as privacy); next is <b>Reg BI read as FINRA 2210</b>.
-Part of the S-ID/S-P confusion is a labelling-convention difference between the training data and the OOD set (see methodology).</div>
+{notes}
 <h2>Methods</h2>{methods_table(M)}
 <h2>Per class</h2>{per_class_table(M)}
 <h2>Confusion matrix — CLM fine-tuned, unit-masked</h2>{confusion(best, M['labels'])}
-<h2>By OOD axis</h2>{slice_table('by_ood_axis')}
 <h2>By difficulty</h2>{slice_table('by_difficulty')}
+<h2>By OOD axis</h2>{slice_table('by_ood_axis')}
 <h2>By speaker</h2>{slice_table('by_unit')}
 <h2>Sample errors ({len(errs)} total; first 25)</h2>
-<div class="scroll"><table><tr><th>Text</th><th>Gold</th><th>Predicted</th><th>Axis</th></tr>{err_rows}</table></div>
-<h2>Files</h2><ul><li><code>metrics.json</code> — all methods, slices, CIs</li>
-<li><code>predictions.jsonl</code> — every row with gold, prediction, Fable's rationale</li>
-<li>Data: <code>regime_clf/ood/ood_hard_v1.jsonl</code> (built by <code>regime_clf/ood/build_ood.py</code>)</li></ul>"""
-    return {"title": "OOD hard validation (Fable)", "body": body, "kind": "Out-of-distribution validation",
+<div class="scroll"><table><tr><th>Text</th><th>Gold</th><th>Predicted</th><th>Difficulty / axis</th></tr>{err_rows}</table></div>
+<h2>Files</h2><ul><li><code>metrics.json</code>: all methods, slices, CIs</li>
+<li><code>predictions.jsonl</code>: every row with gold, prediction, Fable's rationale</li>
+<li><code>notes.html</code>: interpretation (optional)</li>
+<li>Data: <code>{e(M['data'])}</code> (built by <code>regime_clf/ood/build_ood.py</code>)</li></ul>"""
+    return {"title": f"OOD {short}", "body": body, "kind": f"OOD validation ({diff_label})",
             "n": M["n"], "macro_f1": best["macro_f1"], "ci": best["macro_f1_95ci"], "acc": best["accuracy"],
             "baseline": M["linear_probe"]["macro_f1"]}
 
@@ -260,13 +275,15 @@ def main():
             res = f"<td colspan='3'>{e(r['summary'])}</td>"
         rows += (f"<tr><td><a href='{name}/report.html'>{name[:10]}</a></td><td>{e(r['title'])}</td>"
                  f"<td class='muted'>{e(r['kind'])}</td><td class='num'>{r['n']:,}</td>{res}</tr>")
+    scored = [(name, r) for name, r in runs if "macro_f1" in r]
+    headline = "; ".join(f"{r['kind'].lower()}: <b>{r['macro_f1']:.3f}</b> macro-F1 (n={r['n']:,})" for _, r in scored)
+    headline = f"Fine-tuned CLM-8B regime classifier. {headline}. Plan for the OOD numbers, not the in-distribution one."
     body = f"""<h1>Test runs</h1>
 <p class="lede">One dated folder per run. Each has a <code>report.html</code> and the raw JSON/JSONL it was built from.
 Regenerate with <code>.venv/bin/python Tests/make_reports.py</code>.</p>
 <div class="scroll"><table><tr><th>Date</th><th>Run</th><th>Type</th><th class="num">n</th>
 <th class="num">Macro-F1 [95% CI]</th><th class="num">Accuracy</th><th class="num">Probe baseline</th></tr>{rows}</table></div>
-<div class="note"><b>Headline.</b> The fine-tuned CLM-8B regime classifier scores 0.977 macro-F1 on the held-out
-in-distribution test, and 0.732 on the Fable-written OOD hard set. Plan for the OOD number, not the in-distribution one.</div>"""
+<div class="note"><b>Headline.</b> {headline}</div>"""
     open(os.path.join(HERE, "index.html"), "w").write(page("Test runs", body, depth=1))
     print("wrote index.html")
 

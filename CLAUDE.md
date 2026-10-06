@@ -7,7 +7,8 @@ A 7-way **regime classifier** for broker-dealer GenAI chat. It labels a message 
 
 ## Current results (2026-10-05)
 - In-dist test (RegModels v2 test, n=2,501): fine-tuned CLM **0.977** macro-F1 [0.970, 0.983]; linear probe 0.955; zero-shot CLM 0.064.
-- OOD hard (Fable 5.1, n=315): fine-tuned CLM **0.732** [0.680, 0.778]; probe 0.747 (CIs overlap). Main errors: S-ID→S-P, Reg BI→2210, violations predicted compliant (22/270).
+- OOD hard/very-hard (Fable 5.1, n=315): fine-tuned CLM **0.732** [0.680, 0.778]; probe 0.747 (CIs overlap). Main errors: S-ID→S-P, Reg BI→2210, violations predicted compliant (22/270).
+- OOD low/medium (Fable 5.1, n=210): fine-tuned CLM **0.748** [0.688, 0.801]; probe 0.720. Low rows 73.3% < medium 80.0%: difficulty does not drive the drop, distribution shift does. Same two confusions (S-ID F1 0.38; blunt Reg BI → 2210 at p≈0.99).
 - Selected config: lr 1e-3, 30 epochs, batch 256, AdamW wd 0.01, one-cycle, softmax-CE over candidates, heads initialised from `CLM_v0.1-8B.pt`, best-val epoch kept.
 
 ## Layout
@@ -17,9 +18,9 @@ A 7-way **regime classifier** for broker-dealer GenAI chat. It labels a message 
 - `regime_clf/run_experiment.py`: zero-shot + fine-tune + probe; `--out` dir gets `metrics.json` and the checkpoint. `sweep.sh`: LR sweep.
 - `regime_clf/evaluate.py`: any labelled JSONL → metrics with bootstrap CIs and slices (`ood_axis`, `difficulty`, `unit`).
 - `regime_clf/inference.py`: production API (`RegimeClassifier.classify(texts, unit=)`) + CLI. `UNIT_CLASSES` masks classes by speaker.
-- `regime_clf/ood/`: `SPEC.md` (generation spec), `raw_*.jsonl` (3 Fable agents × 105), `build_ood.py` → `ood_hard_v1.jsonl`.
+- `regime_clf/ood/`: `SPEC.md` (generation spec incl. difficulty definitions), `raw_*.jsonl` (5 Fable agents × 105), `build_ood.py [--parts … --out …]` → `ood_hard_v1.jsonl` (default) / `ood_low_medium_v1.jsonl`.
 - `app/`: FastAPI chat (`server.py`), providers (`llm.py`: Anthropic SDK + OpenAI-compatible), `config.yaml`, `static/`, `mock_llm.py`. Writes `app/data/turns.jsonl` and `app/data/feedback.jsonl` (FP/FN flags).
-- `Tests/<YYYY-MM-DD>_<name>/`: one folder per run, each with `report.html`; `Tests/make_reports.py` regenerates all reports + `Tests/index.html`.
+- `Tests/<YYYY-MM-DD>_<name>/`: one folder per run, each with `report.html` and an optional hand-written `notes.html` (interpretation); `Tests/make_reports.py` regenerates all reports + `Tests/index.html`.
 - `CLM/` (gitignored): clone of github.com/Contrastive-LM/CLM, installed `--no-deps -e`.
 
 ## Commands

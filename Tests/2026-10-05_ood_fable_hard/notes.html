@@ -1,0 +1,5 @@
+<div class="note warn"><b>Read this first.</b> The in-distribution score (0.977) overstates real-world performance.
+On text that does not look like the templated training data, macro-F1 drops to about 0.73. The biggest failure is
+<b>Reg S-ID read as Reg S-P</b> (identity-theft red flags labelled as privacy); next is <b>Reg BI read as FINRA 2210</b>.
+Part of the S-ID/S-P confusion is a labelling-convention difference between the training data and the OOD set (see methodology).
+The linear probe's CI overlaps the CLM heads' CI, so neither is significantly better on this set.</div>

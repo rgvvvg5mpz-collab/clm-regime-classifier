@@ -25,8 +25,8 @@ and what to do next, in priority order.</p>
 <tr><th>Area</th><th>Status</th><th>Notes</th></tr>
 <tr><td>7-class dataset from RegModels</td><td><span class="pill good">done</span></td><td>Deterministic rebuild; real fund name scrubbed</td></tr>
 <tr><td>Qwen3-8B on Apple Silicon (no vLLM)</td><td><span class="pill good">done</span></td><td>Parity-checked against the CLM model card</td></tr>
-<tr><td>Fine-tuned CLM heads</td><td><span class="pill good">done</span></td><td>0.977 in-dist / 0.732 OOD macro-F1; release asset <code>clm_regime_7way.pt</code></td></tr>
-<tr><td>OOD hard set (Fable 5.1)</td><td><span class="pill good">done</span></td><td>315 rows; labels not SME-adjudicated</td></tr>
+<tr><td>Fine-tuned CLM heads</td><td><span class="pill good">done</span></td><td>0.977 in-dist / 0.732 OOD hard / 0.748 OOD low-medium macro-F1; release asset <code>clm_regime_7way.pt</code></td></tr>
+<tr><td>OOD sets (Fable 5.1)</td><td><span class="pill good">done</span></td><td>hard/very-hard 315 rows + low/medium 210 rows; labels not SME-adjudicated</td></tr>
 <tr><td>Inference pipeline (API + CLI)</td><td><span class="pill good">done</span></td><td><code>regime_clf/inference.py</code></td></tr>
 <tr><td>Chat UI + FP/FN flagging</td><td><span class="pill good">done</span></td><td>Tested end to end with the mock LLM; not yet with a live Claude key</td></tr>
 <tr><td>Automated tests / CI</td><td><span class="pill warn">not started</span></td><td>Only recorded runs in <code>Tests/</code>; see improvements</td></tr>
@@ -62,7 +62,7 @@ cd .. &amp;&amp; .venv/bin/python Tests/make_reports.py                         
 <tr><td><code>regime_clf/run_experiment.py</code></td><td>change training (loss, optimiser, epochs) or baselines</td></tr>
 <tr><td><code>regime_clf/evaluate.py</code></td><td>add metrics or slices</td></tr>
 <tr><td><code>regime_clf/inference.py</code></td><td>change the production contract (<code>Prediction</code>, speaker masks)</td></tr>
-<tr><td><code>regime_clf/ood/</code></td><td>extend the OOD set (<code>SPEC.md</code> → new <code>raw_*.jsonl</code> → <code>build_ood.py</code>)</td></tr>
+<tr><td><code>regime_clf/ood/</code></td><td>extend an OOD set (<code>SPEC.md</code> → new <code>raw_*.jsonl</code> → <code>build_ood.py --parts … --out …</code>)</td></tr>
 <tr><td><code>app/</code></td><td>work on the UI; see <a href="../app/DEV_README.html">its dev README</a></td></tr>
 </table></div>
 
@@ -80,14 +80,14 @@ cd .. &amp;&amp; .venv/bin/python Tests/make_reports.py                         
 <h2>6. Improvements, in priority order</h2>
 <h3>P0: correctness and trust</h3>
 <ol>
-<li><b>SME adjudication of the OOD set and the S-ID / S-P boundary.</b> The largest OOD error (S-ID → S-P, 19/45) is partly a labelling-convention gap. Have compliance write a one-page decision rule (e.g. "verification bypass or takeover → S-ID even if PII is mentioned") and relabel both training and OOD rows to it.</li>
+<li><b>SME adjudication of the OOD sets and the S-ID / S-P boundary.</b> The largest OOD error (S-ID → S-P: 19/45 on the hard set, 12/30 on low/medium) is partly a labelling-convention gap. Have compliance write a one-page decision rule (e.g. "verification bypass or takeover → S-ID even if PII is mentioned") and relabel both training and OOD rows to it.</li>
 <li><b>Recall-first thresholds.</b> Production should under-report "compliant": 22/270 OOD violations were predicted compliant. Add a per-class decision rule (flag if <code>1 − p(compliant) ≥ τ</code>), tune τ on validation for a recall floor (e.g. ≥ 0.95 for 4530 theft and S-ID, mirroring RegModels' <code>recall_floor</code>), and report precision at that operating point.</li>
 <li><b>Calibration.</b> Measure ECE / reliability on validation and fit temperature scaling on <code>logit_scale</code>; the UI shows these probabilities to users.</li>
 <li><b>Automated tests.</b> Add <code>pytest</code> for <code>build_dataset</code> (counts, no conflicts, scrub), <code>inference</code> (golden predictions on ~20 fixed messages), <code>app</code> (FastAPI TestClient with <code>mock_llm</code>, feedback schema), plus a CI job that runs them with a stubbed embedder.</li>
 </ol>
 <h3>P1: generalization</h3>
 <ol start="5">
-<li><b>Train on harder data.</b> Generate a Fable training set along the same three OOD axes (but a disjoint seed and spec), mix it ~20% with RegModels, and keep <code>ood_hard_v1</code> strictly held out. This is the most likely fix for the 0.977 → 0.732 gap.</li>
+<li><b>Train on more varied data, not harder data.</b> The low/medium run showed that explicit rows are no easier for the model (low 73%, medium 80%, hard 77%): it keys on the surface form of the training templates (e.g. a blunt “Buy X, it's right for you” is predicted FINRA 2210 at p = 0.99 because training Reg BI rows are long and hedged). Generate a Fable training set along the three OOD axes at all difficulties (disjoint seed and spec), mix it ~20% with RegModels, and keep both <code>ood_*_v1</code> sets strictly held out. This is the most likely fix for the 0.977 → ~0.74 gap.</li>
 <li><b>Close the feedback loop.</b> Consume <code>app/data/feedback.jsonl</code>: an SME review queue (RegModels' <code>RLHF_RLAIF_UI</code> is the natural home), then gated retraining that refuses to promote a checkpoint which regresses in-dist test, OOD, or any per-class recall floor.</li>
 <li><b>Multi-label output.</b> Real messages can implicate two regimes (a complaint that also leaks an SSN). Switch the head objective to per-class sigmoid (noul questions) or report every class above a threshold.</li>
 <li><b>Sub-rule routing.</b> After the regime, call the matching RegModels per-track model for the fine label (e.g. <code>d1F_performance_projection</code>), giving an explainable two-stage system.</li>

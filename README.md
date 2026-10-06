@@ -5,9 +5,10 @@ A 7-way classifier for a broker-dealer's GenAI chat channel. Given a message, it
 | | Macro-F1 | 95% CI | n |
 |---|---|---|---|
 | Held-out test (in-distribution) | **0.977** | 0.970–0.983 | 2,501 |
-| OOD hard set, written by Claude Fable 5.1 | **0.732** | 0.680–0.778 | 315 |
+| OOD hard/very-hard set, written by Claude Fable 5.1 | **0.732** | 0.680–0.778 | 315 |
+| OOD low/medium set, written by Claude Fable 5.1 | **0.748** | 0.688–0.801 | 210 |
 
-Plan around the OOD number. See [`Tests/`](Tests/index.html) for every run.
+Plan around the OOD numbers. Explicit, easy-to-read messages are no easier for the model than hard ones: the drop comes from distribution shift, not difficulty. See [`Tests/`](Tests/index.html) for every run.
 
 **Documentation (HTML).** Open the files locally, or view them via GitHub Pages / htmlpreview:
 - [Overview](docs/README.html) · [Methodology](docs/methodology.html) · [Architecture](docs/architecture.html)
@@ -33,7 +34,7 @@ Qwen3-8B (~16 GB) downloads on first use. It runs in-process on Apple Silicon/CP
 ```
 regime_clf/   dataset build, Qwen3-8B embedder, training, evaluation, inference pipeline
   data/       7-class train/val/test built from RegModels
-  ood/        Fable OOD hard set (spec, raw parts, merged ood_hard_v1.jsonl)
+  ood/        Fable OOD sets (spec, raw parts, merged ood_hard_v1.jsonl and ood_low_medium_v1.jsonl)
 app/          chat UI: FastAPI server, Anthropic + OpenAI-compatible adapters, static front end, mock LLM
 Tests/        dated test runs, each with report.html; index.html summarises them
 docs/         HTML documentation
