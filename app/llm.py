@@ -66,8 +66,14 @@ def _anthropic(cfg: ProviderConfig, messages: list[dict]) -> str:
                                                fallbacks="default", **req)
         else:
             resp = client.messages.create(**req)
+    except TypeError as e:
+        # The SDK raises TypeError (not an API error) when no credential source resolves.
+        if "authentication method" not in str(e):
+            raise
+        raise LLMError("No Anthropic credentials: enter an API key in the sidebar, or start the "
+                       "server with ANTHROPIC_API_KEY set (or `ant auth login`)") from e
     except anthropic.AuthenticationError as e:
-        raise LLMError("Anthropic authentication failed - set ANTHROPIC_API_KEY or enter a key") from e
+        raise LLMError("Anthropic rejected the API key - check it and try again") from e
     except anthropic.NotFoundError as e:
         raise LLMError(f"Anthropic model or endpoint not found: {cfg.model}") from e
     except anthropic.RateLimitError as e:

@@ -151,6 +151,8 @@ def chat_turn(req: ChatRequest):
         t_llm = time.perf_counter() - t1
     except LLMError as e:
         raise HTTPException(status_code=502, detail=str(e))
+    except Exception as e:   # anything else from a provider: still a readable error in the UI
+        raise HTTPException(status_code=502, detail=f"LLM call failed ({type(e).__name__}): {e}")
     t2 = time.perf_counter()
     reply_verdict = screen(reply, "assistant_response")
     t_reply = time.perf_counter() - t2
