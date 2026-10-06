@@ -79,7 +79,7 @@ def confusion(m: dict, labels: list[str]) -> str:
         for j, v in enumerate(r):
             a = v / tot
             fg = "color:#fff;" if a > 0.55 else ""
-            cells += f"<td class='cell' style='background:rgba(var(--heat),{a:.2f});{fg}'>{v}</td>"
+            cells += f"<td class='cell' style='background:rgba(var(--heat, 47, 91, 211),{a:.2f});{fg}'>{v}</td>"
         rows += f"<tr><th class='rot'>{NAMES[l]}</th>{cells}</tr>"
     return ("<div class='scroll'><table class='heat'><tr><th class='rot'>gold ↓ / predicted →</th>"
             + head + "</tr>" + rows + "</table></div>")

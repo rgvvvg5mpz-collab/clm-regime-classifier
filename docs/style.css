@@ -1,4 +1,5 @@
-/* Shared stylesheet for docs/*.html and Tests/**/report.html (inlined into reports). */
+/* Shared stylesheet for the docs pages and the test reports (inlined into each report.html).
+   Note: never write a star-slash sequence inside this comment; it ends the comment early. */
 :root {
   --bg: #fbfbf9; --surface: #ffffff; --text: #1c1c1a; --muted: #686862; --border: #e4e3de;
   --accent: #2f5bd3; --accent-soft: #e8eefc; --good: #1f7a3a; --good-soft: #e5f3e9;
