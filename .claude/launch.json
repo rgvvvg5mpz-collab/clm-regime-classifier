@@ -1,0 +1,39 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "chat-ui",
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": [
+        "-m",
+        "uvicorn",
+        "app.server:app",
+        "--port",
+        "8710"
+      ],
+      "port": 8710
+    },
+    {
+      "name": "mock-llm",
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": [
+        "-m",
+        "uvicorn",
+        "app.mock_llm:app",
+        "--port",
+        "8799"
+      ],
+      "port": 8799
+    },
+    {
+      "name": "docs",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8720"
+      ],
+      "port": 8720
+    }
+  ]
+}

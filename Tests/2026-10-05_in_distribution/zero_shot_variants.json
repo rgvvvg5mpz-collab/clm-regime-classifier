@@ -1,0 +1,50 @@
+{
+  "descriptions/heads": {
+    "accuracy": 0.13914434226309477,
+    "macro_f1": 0.06425222662696704
+  },
+  "descriptions/heads+centered": {
+    "accuracy": 0.27149140343862455,
+    "macro_f1": 0.23608973455266186
+  },
+  "descriptions/raw": {
+    "accuracy": 0.14354258296681327,
+    "macro_f1": 0.06441331825223082
+  },
+  "descriptions/raw+centered": {
+    "accuracy": 0.18072770891643342,
+    "macro_f1": 0.16923143268864815
+  },
+  "short_names/heads": {
+    "accuracy": 0.2035185925629748,
+    "macro_f1": 0.10153673349011505
+  },
+  "short_names/heads+centered": {
+    "accuracy": 0.16673330667732908,
+    "macro_f1": 0.15709393624703255
+  },
+  "short_names/raw": {
+    "accuracy": 0.10435825669732107,
+    "macro_f1": 0.0270088477259792
+  },
+  "short_names/raw+centered": {
+    "accuracy": 0.1679328268692523,
+    "macro_f1": 0.16779534315401848
+  },
+  "plain_situations/heads": {
+    "accuracy": 0.12195121951219512,
+    "macro_f1": 0.08160310279361041
+  },
+  "plain_situations/heads+centered": {
+    "accuracy": 0.2658936425429828,
+    "macro_f1": 0.2364821221877666
+  },
+  "plain_situations/raw": {
+    "accuracy": 0.22950819672131148,
+    "macro_f1": 0.0673828632624453
+  },
+  "plain_situations/raw+centered": {
+    "accuracy": 0.282686925229908,
+    "macro_f1": 0.2274284394266959
+  }
+}

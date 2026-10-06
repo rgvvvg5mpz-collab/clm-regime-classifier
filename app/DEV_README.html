@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chat UI Dev README</title>
+<link rel="stylesheet" href="../docs/style.css">
+</head>
+<body><div class="wrap">
+<nav class="top">
+  <a href="../docs/README.html">Overview</a>
+  <a href="../docs/methodology.html">Methodology</a>
+  <a href="../docs/architecture.html">Architecture</a>
+  <a href="../docs/developer_guide.html">Developer guide</a>
+  <a class="on" href="DEV_README.html">Chat UI dev README</a>
+  <a href="../Tests/index.html">Test runs</a>
+</nav>
+
+<h1>Chat UI: developer README</h1>
+<p class="lede">A chat front end where the user picks any LLM. Every turn is screened by the regime classifier, and
+users can flag false positives and false negatives, which are written to a file.</p>
+
+<h2>1. Run it</h2>
+<pre><code># from the repo root, after the setup in docs/developer_guide.html
+export ANTHROPIC_API_KEY=...            # only needed for the Anthropic presets
+.venv/bin/python -m uvicorn app.server:app --port 8710
+open http://localhost:8710</code></pre>
+<p>No LLM handy? Run the offline mock and choose an OpenAI-compatible preset with base URL
+<code>http://localhost:8799/v1</code>:</p>
+<pre><code>.venv/bin/python -m uvicorn app.mock_llm:app --port 8799
+# message containing "guarantee" -> FINRA 2210-style reply; "recommend" -> Reg BI-style reply</code></pre>
+<p>The first message loads Qwen3-8B (~15–20 s, ~16 GB). Press <b>Load</b> in the sidebar to warm it up first.</p>
+
+<h2>2. What happens on a turn</h2>
+<ol>
+<li>The browser posts <code>/api/chat</code> with the provider settings, the visible history and the new message.</li>
+<li>The server screens the <b>user message</b> with the client-side regimes (4530, 17a-3/4, S-P, S-ID, compliant).</li>
+<li>The server calls the selected LLM through <code>app/llm.py</code>.</li>
+<li>The server screens the <b>reply</b> with the assistant-side regimes (2210, Reg BI, compliant).</li>
+<li>The turn (both texts, both verdicts, latencies) is appended to <code>app/data/turns.jsonl</code>, and the JSON goes back to the UI.</li>
+<li>Each bubble shows a verdict chip, a <i>details</i> toggle with all class probabilities, and a flag link:
+  <b>Flag false positive</b> on flagged text, or <b>Flag false negative</b> on clean text. The flag form asks for the correct label and an optional note, then posts <code>/api/feedback</code>.</li>
+</ol>
+<p>With <code>screening.on_flagged_response: withhold</code> in <code>config.yaml</code>, flagged replies are hidden behind a
+“Show anyway” control instead of being shown with a warning chip.</p>
+
+<h2>3. Files</h2>
+<div class="scroll"><table>
+<tr><th>File</th><th>Purpose</th></tr>
+<tr><td><code>app/server.py</code></td><td>FastAPI app: routes, lazy classifier load, JSONL logging</td></tr>
+<tr><td><code>app/llm.py</code></td><td>Provider adapters: <code>anthropic</code> (official SDK, server-side refusal fallback on) and <code>openai_compatible</code> (any <code>/chat/completions</code>)</td></tr>
+<tr><td><code>app/config.yaml</code></td><td>Presets, system prompt, screening mode, classifier location, storage paths</td></tr>
+<tr><td><code>app/static/</code></td><td><code>index.html</code>, <code>app.js</code>, <code>styles.css</code>: plain JS, no build step, light and dark themes, phone layout</td></tr>
+<tr><td><code>app/mock_llm.py</code></td><td>Offline OpenAI-compatible endpoint for development and tests</td></tr>
+<tr><td><code>app/data/</code></td><td>Runtime output (gitignored): <code>turns.jsonl</code>, <code>feedback.jsonl</code></td></tr>
+</table></div>
+
+<h2>4. API</h2>
+<div class="scroll"><table>
+<tr><th>Route</th><th>Body</th><th>Returns</th></tr>
+<tr><td><code>GET /api/config</code></td><td>-</td><td>presets (no keys), system prompt, screening mode, label names</td></tr>
+<tr><td><code>GET /api/health</code></td><td>-</td><td><code>{classifier_loaded}</code></td></tr>
+<tr><td><code>POST /api/warmup</code></td><td><code>{}</code></td><td>loads the classifier; <code>{seconds}</code></td></tr>
+<tr><td><code>POST /api/classify</code></td><td><code>{texts: [..], unit?}</code></td><td>list of <code>Prediction</code></td></tr>
+<tr><td><code>POST /api/chat</code></td><td><code>{session_id, provider{provider, model, base_url?, api_key?, api_key_env?, max_tokens?}, history[], message, system?}</code></td><td>the logged turn; <code>502</code> with a readable message on LLM errors</td></tr>
+<tr><td><code>POST /api/feedback</code></td><td><code>{turn_id, target: user|assistant, kind: false_positive|false_negative, text, predicted_label, correct_label?, note?}</code></td><td><code>{ok: true}</code></td></tr>
+</table></div>
+
+<h3>Feedback record (one JSON object per line)</h3>
+<pre><code>{"ts": 1791249329.5, "turn_id": "10b818103c43", "target": "assistant",
+ "kind": "false_positive", "text": "...", "predicted_label": "finra_2210",
+ "correct_label": "compliant", "note": null}</code></pre>
+<p>Join to <code>turns.jsonl</code> on <code>turn_id</code> to get the full verdict and probabilities.</p>
+
+<h2>5. Common changes</h2>
+<h3>Add an LLM provider</h3>
+<p>Most endpoints are OpenAI-compatible: add a preset to <code>config.yaml</code> and you're done. For a different wire
+format, add a branch in <code>llm.chat()</code> and a function returning the reply text; raise <code>LLMError</code> with a
+human-readable message on failure. For Claude, always go through the <code>anthropic</code> SDK.</p>
+<h3>Change what gets screened</h3>
+<p>Speaker-to-class masks live in <code>regime_clf/inference.py</code> (<code>UNIT_CLASSES</code>); the flag form mirrors
+them in <code>app.js</code> (<code>openFlag</code>). Keep the two in sync. Set <code>screening.unit_masking: false</code> to score all
+seven classes for both speakers.</p>
+<h3>Use a GPU encoder</h3>
+<p>Set <code>classifier.emb_url</code> to a vLLM pooling server (<code>vllm serve Qwen/Qwen3-8B --runner pooling --port 8090</code>).
+The server then loads only the 75 MB heads.</p>
+
+<h2>6. Security notes</h2>
+<ul>
+<li>API keys are never written by the server. Keys typed into the UI live in that tab's <code>sessionStorage</code> and travel with each request to your own server only.</li>
+<li>There is no authentication. Bind to <code>127.0.0.1</code> (uvicorn's default) or put it behind your SSO proxy before sharing.</li>
+<li><code>turns.jsonl</code> contains raw chat text, so treat it as sensitive data (rotation and retention are on the improvements list).</li>
+</ul>
+
+<h2>7. Testing checklist</h2>
+<ol>
+<li>Start <code>mock_llm</code> and the server; select an OpenAI-compatible preset with the mock URL.</li>
+<li>Send <i>“My advisor sold my bonds without asking. Can you guarantee my new fund won't lose money?”</i>; expect the user message → FINRA 4530 and the reply → FINRA 2210.</li>
+<li>Flag the reply as a false positive; check that <code>app/data/feedback.jsonl</code> gains a row with <code>kind: false_positive</code>.</li>
+<li>Send a neutral question, then flag it as a false negative with a chosen label.</li>
+<li>Switch to an Anthropic preset (with a key set) and repeat step 2 against a live model.</li>
+</ol>
+<p>The recorded run is in <a href="../Tests/2026-10-05_ui_e2e/report.html">Tests/2026-10-05_ui_e2e</a>.</p>
+</div></body></html>

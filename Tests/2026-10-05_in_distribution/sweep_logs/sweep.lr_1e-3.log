@@ -1,0 +1,35 @@
+{'train': (19567, 4096), 'val': (2429, 4096), 'test': (2501, 4096)} (7, 4096)
+[zero-shot] test acc=0.1391 macro_f1=0.0643
+[finetune] epoch 1/30 loss=1.6485 val_macro_f1=0.5803
+[finetune] epoch 2/30 loss=0.7115 val_macro_f1=0.8242
+[finetune] epoch 3/30 loss=0.3783 val_macro_f1=0.8451
+[finetune] epoch 4/30 loss=0.2337 val_macro_f1=0.9050
+[finetune] epoch 5/30 loss=0.1846 val_macro_f1=0.9094
+[finetune] epoch 6/30 loss=0.1482 val_macro_f1=0.9465
+[finetune] epoch 7/30 loss=0.1374 val_macro_f1=0.9374
+[finetune] epoch 8/30 loss=0.0994 val_macro_f1=0.9538
+[finetune] epoch 9/30 loss=0.0817 val_macro_f1=0.9497
+[finetune] epoch 10/30 loss=0.0733 val_macro_f1=0.9492
+[finetune] epoch 11/30 loss=0.0666 val_macro_f1=0.9585
+[finetune] epoch 12/30 loss=0.0666 val_macro_f1=0.9303
+[finetune] epoch 13/30 loss=0.0641 val_macro_f1=0.9676
+[finetune] epoch 14/30 loss=0.0405 val_macro_f1=0.9663
+[finetune] epoch 15/30 loss=0.0278 val_macro_f1=0.9714
+[finetune] epoch 16/30 loss=0.0314 val_macro_f1=0.9723
+[finetune] epoch 17/30 loss=0.0204 val_macro_f1=0.9649
+[finetune] epoch 18/30 loss=0.0227 val_macro_f1=0.9701
+[finetune] epoch 19/30 loss=0.0154 val_macro_f1=0.9731
+[finetune] epoch 20/30 loss=0.0115 val_macro_f1=0.9760
+[finetune] epoch 21/30 loss=0.0095 val_macro_f1=0.9728
+[finetune] epoch 22/30 loss=0.0076 val_macro_f1=0.9753
+[finetune] epoch 23/30 loss=0.0067 val_macro_f1=0.9759
+[finetune] epoch 24/30 loss=0.0057 val_macro_f1=0.9748
+[finetune] epoch 25/30 loss=0.0053 val_macro_f1=0.9761
+[finetune] epoch 26/30 loss=0.0050 val_macro_f1=0.9750
+[finetune] epoch 27/30 loss=0.0048 val_macro_f1=0.9765
+[finetune] epoch 28/30 loss=0.0046 val_macro_f1=0.9769
+[finetune] epoch 29/30 loss=0.0044 val_macro_f1=0.9754
+[finetune] epoch 30/30 loss=0.0044 val_macro_f1=0.9752
+[finetuned] test acc=0.9788 macro_f1=0.9766
+[probe] C=100.0 test acc=0.9588 macro_f1=0.9554
+{"clm_heads_ms_per_decision_cpu": 0.3218587499577552}

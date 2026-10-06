@@ -1,0 +1,17 @@
+# Tested on macOS (Apple M5 Pro), Python 3.14. CLM itself: git clone https://github.com/Contrastive-LM/CLM
+# then `pip install --no-deps -e CLM` (skips vLLM, which is CUDA-only).
+torch==2.14.1
+transformers==5.18.0
+accelerate==1.15.0
+safetensors==0.8.0
+huggingface_hub==1.33.0
+numpy==2.5.3
+scikit-learn==1.9.1
+requests==2.34.2
+# chat UI
+fastapi==0.142.2
+uvicorn==0.54.0
+pydantic==2.13.5
+PyYAML==6.0.3
+httpx==0.28.1
+anthropic==1.11.0

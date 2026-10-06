@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Regime Screening Chat</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="panel" id="sidebar">
+    <h1>Regime Screening Chat</h1>
+    <p class="muted">Every turn is screened by the fine-tuned CLM-8B regime classifier.</p>
+
+    <label>Preset
+      <select id="preset"></select>
+    </label>
+    <label>Provider
+      <select id="provider">
+        <option value="anthropic">Anthropic (Claude)</option>
+        <option value="openai_compatible">OpenAI-compatible endpoint</option>
+      </select>
+    </label>
+    <label id="baseUrlRow">Base URL
+      <input id="baseUrl" placeholder="http://localhost:11434/v1">
+    </label>
+    <label>Model
+      <input id="model" placeholder="claude-opus-5-5">
+    </label>
+    <label>API key <span class="muted">(optional, this tab only)</span>
+      <input id="apiKey" type="password" autocomplete="off" placeholder="uses server env var if empty">
+    </label>
+    <label>System prompt
+      <textarea id="system" rows="4"></textarea>
+    </label>
+
+    <div class="status">
+      <span id="clfDot" class="dot"></span>
+      <span id="clfStatus">Classifier not loaded</span>
+      <button id="warmup" class="secondary">Load</button>
+    </div>
+    <button id="newChat" class="secondary">New chat</button>
+    <p class="muted small">Flags you raise are written to <code>app/data/feedback.jsonl</code>.</p>
+  </aside>
+
+  <main class="chat">
+    <div id="messages" class="messages">
+      <div class="empty" id="empty">
+        <h2>Start a conversation</h2>
+        <p class="muted">Your message is checked against FINRA 4530, SEC 17a-3/4, Reg S-P and Reg S-ID.
+          The model's reply is checked against FINRA 2210 and Reg BI.</p>
+      </div>
+    </div>
+    <form id="composer" class="composer">
+      <textarea id="input" rows="2" placeholder="Type a message… (Enter to send, Shift+Enter for newline)"></textarea>
+      <button id="send" type="submit">Send</button>
+    </form>
+  </main>
+</div>
+
+<template id="flagTpl">
+  <form class="flagform">
+    <label>Correct label
+      <select name="correct"></select>
+    </label>
+    <label>Note <input name="note" placeholder="optional"></label>
+    <div class="row">
+      <button type="submit">Submit flag</button>
+      <button type="button" class="secondary cancel">Cancel</button>
+    </div>
+  </form>
+</template>
+<script src="/static/app.js"></script>
+</body>
+</html>

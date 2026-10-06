@@ -1,0 +1,48 @@
+# Chat UI configuration. Keys are NOT stored here: name an environment variable in
+# api_key_env, or type a key into the UI (kept only in the browser tab's session).
+
+# Starting points shown in the UI's model picker; every field can be edited in the UI.
+presets:
+  - name: Claude Opus 5.5 (Anthropic)
+    provider: anthropic
+    model: claude-opus-5-5
+    api_key_env: ANTHROPIC_API_KEY
+  - name: Claude Sonnet 5.5 (Anthropic)
+    provider: anthropic
+    model: claude-sonnet-5-5
+    api_key_env: ANTHROPIC_API_KEY
+  - name: Ollama (local)
+    provider: openai_compatible
+    base_url: http://localhost:11434/v1
+    model: llama3.1
+  - name: vLLM / LM Studio (local)
+    provider: openai_compatible
+    base_url: http://localhost:8000/v1
+    model: your-model-name
+  - name: OpenAI-compatible (custom)
+    provider: openai_compatible
+    base_url: https://api.example.com/v1
+    model: your-model-name
+    api_key_env: OPENAI_API_KEY
+
+system_prompt: >-
+  You are a helpful assistant in a broker-dealer's client chat channel. Provide general
+  educational information. Do not make personalized investment recommendations.
+
+screening:
+  # Score the user's message with the client-side regimes and the model's reply with the
+  # assistant-side regimes (see regime_clf/inference.py UNIT_CLASSES).
+  unit_masking: true
+  # When the reply is flagged: "warn" shows it with a banner; "withhold" hides it until
+  # the user chooses to reveal it.
+  on_flagged_response: warn
+
+classifier:
+  checkpoint: regime_clf/checkpoints/clm_regime_7way.pt
+  # Leave empty to run Qwen3-8B in-process (Apple Silicon / CPU / CUDA); or point at a
+  # vLLM pooling server: vllm serve Qwen/Qwen3-8B --runner pooling --port 8090
+  emb_url: ""
+
+storage:
+  turns: app/data/turns.jsonl         # every screened turn
+  feedback: app/data/feedback.jsonl   # user-flagged false positives / false negatives

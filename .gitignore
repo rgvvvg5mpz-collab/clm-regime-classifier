@@ -1,0 +1,17 @@
+# environments and external code
+.venv/
+CLM/
+__pycache__/
+*.pyc
+.DS_Store
+
+# large / regenerable artefacts
+regime_clf/emb_cache/
+*.pt
+*.npy
+
+# runtime output of the chat UI
+app/data/
+
+# local editor / tool state
+.claude/settings.local.json

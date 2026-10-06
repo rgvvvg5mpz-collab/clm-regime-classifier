@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CLM Regime Classifier</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body><div class="wrap">
+<nav class="top">
+  <a class="on" href="README.html">Overview</a>
+  <a href="methodology.html">Methodology</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="developer_guide.html">Developer guide</a>
+  <a href="../app/DEV_README.html">Chat UI dev README</a>
+  <a href="../Tests/index.html">Test runs</a>
+</nav>
+
+<h1>CLM Regime Classifier</h1>
+<p class="lede">A 7-way classifier that reads a message from a broker-dealer's GenAI chat channel and names the
+securities-regulation regime it implicates, or <i>compliant</i>. It is built on <b>CLM-8B</b>, the contrastive
+language model from Stanford and NVIDIA (Sept 2026), and is trained on the six RegModels datasets.</p>
+
+<div class="cards">
+  <div class="card"><div class="k">In-distribution test macro-F1</div><div class="v">0.977</div><div class="s">95% CI 0.970–0.983 · n = 2,501</div></div>
+  <div class="card"><div class="k">OOD hard set macro-F1</div><div class="v">0.732</div><div class="s">95% CI 0.680–0.778 · n = 315 (Fable)</div></div>
+  <div class="card"><div class="k">Scoring cost</div><div class="v">0.3 ms</div><div class="s">heads only; + ~54 ms Qwen3-8B encode on an M5 Pro</div></div>
+  <div class="card"><div class="k">Trainable parameters</div><div class="v">18.9 M</div><div class="s">two projection heads; Qwen3-8B frozen</div></div>
+</div>
+
+<h2>The seven classes</h2>
+<div class="scroll"><table>
+<tr><th>Label</th><th>Regime</th><th>Speaker it applies to</th></tr>
+<tr><td><code>compliant</code></td><td>No regulatory issue</td><td>either</td></tr>
+<tr><td><code>finra_2210</code></td><td>FINRA Rule 2210: communications with the public (misleading, promissory, unbalanced, projections, missing disclosures)</td><td>assistant</td></tr>
+<tr><td><code>reg_bi</code></td><td>Regulation Best Interest: personalized recommendation or proprietary steering</td><td>assistant</td></tr>
+<tr><td><code>finra_4530</code></td><td>FINRA Rule 4530: reportable written customer complaint</td><td>client</td></tr>
+<tr><td><code>sec_17a3_17a4</code></td><td>SEC Rules 17a-3/17a-4: off-channel communication, record evasion, records updates</td><td>client</td></tr>
+<tr><td><code>reg_sp</code></td><td>Regulation S-P: sensitive personal data, privacy requests, data incidents</td><td>client</td></tr>
+<tr><td><code>reg_sid</code></td><td>Regulation S-ID: identity-theft red flags, account-takeover signals</td><td>client</td></tr>
+</table></div>
+
+<h2>Results at a glance</h2>
+<div class="scroll"><table>
+<tr><th>Method</th><th class="num">In-dist macro-F1</th><th class="num">OOD macro-F1</th></tr>
+<tr><td><b>CLM-8B, fine-tuned heads</b> (shipped)</td><td class="num"><b>0.977</b></td><td class="num"><b>0.732</b></td></tr>
+<tr><td>Linear probe on frozen Qwen3-8B embeddings</td><td class="num">0.955</td><td class="num">0.747</td></tr>
+<tr><td>CLM-8B zero-shot (published heads, class descriptions)</td><td class="num">0.064</td><td class="num">0.080</td></tr>
+</table></div>
+<div class="note warn"><b>Use the OOD number for planning.</b> The training data is synthetic and templated. On Fable-written
+messages in new styles and scenarios, accuracy falls from 97.9% to 74.0%, and 22 of 270 violations are missed
+(predicted compliant). The weak spots are Reg S-ID vs Reg S-P, and Reg BI vs FINRA 2210. See the
+<a href="../Tests/2026-10-05_ood_fable_hard/report.html">OOD report</a>.</div>
+
+<h2>Quick start</h2>
+<pre><code># 1. environment (Python 3.12+; tested on 3.14, macOS / Apple Silicon)
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+git clone https://github.com/Contrastive-LM/CLM.git &amp;&amp; .venv/bin/pip install --no-deps -e CLM
+
+# 2. weights: Qwen3-8B (~16 GB, auto-downloads on first use), reference CLM heads, our fine-tuned heads
+.venv/bin/clm-download
+gh release download v1.0 -p clm_regime_7way.pt -D regime_clf/checkpoints   # or download from the Releases page
+
+# 3. classify
+cd regime_clf
+../.venv/bin/python inference.py "Can you text me on my personal cell instead?" --unit client_message
+
+# 4. chat UI with screening
+cd .. &amp;&amp; .venv/bin/python -m uvicorn app.server:app --port 8710   # open http://localhost:8710</code></pre>
+
+<h2>Repository map</h2>
+<div class="scroll"><table>
+<tr><th>Path</th><th>What it is</th></tr>
+<tr><td><code>regime_clf/</code></td><td>Model code: dataset build, Qwen3-8B embedder for Apple Silicon, training and sweep, evaluation, inference pipeline</td></tr>
+<tr><td><code>regime_clf/data/</code></td><td>Merged 7-class train/val/test (built from RegModels by <code>build_dataset.py</code>)</td></tr>
+<tr><td><code>regime_clf/ood/</code></td><td>Fable-generated OOD hard set: the generation spec, three raw parts, the merged <code>ood_hard_v1.jsonl</code></td></tr>
+<tr><td><code>app/</code></td><td>Chat UI: FastAPI server, provider adapters (Anthropic plus any OpenAI-compatible endpoint), static front end, mock LLM</td></tr>
+<tr><td><code>Tests/</code></td><td>Dated test runs, each with a <code>report.html</code>, plus <a href="../Tests/index.html">index.html</a></td></tr>
+<tr><td><code>docs/</code></td><td>This documentation</td></tr>
+<tr><td><code>CLAUDE.md</code></td><td>Orientation for Claude Code sessions</td></tr>
+</table></div>
+
+<h2>Provenance</h2>
+<ul>
+<li>CLM-8B: <a href="https://huggingface.co/Contrastive-LM/CLM-v0.1-8B">Contrastive-LM/CLM-v0.1-8B</a>, code <a href="https://github.com/Contrastive-LM/CLM">Contrastive-LM/CLM</a> (Apache 2.0). Base encoder <a href="https://huggingface.co/Qwen/Qwen3-8B">Qwen/Qwen3-8B</a> (Apache 2.0).</li>
+<li>Training data: <a href="https://github.com/rgvvvg5mpz-collab/RegModels">RegModels</a> <code>slm-supervisory-suite/data</code> v2 splits (synthetic). One real fund-family name is replaced with a fictional one (“Harborline”) at build time.</li>
+<li>OOD set: written by Claude Fable 5.1 to <code>regime_clf/ood/SPEC.md</code>, then checked against the training data for duplicates and near-duplicates.</li>
+</ul>
+<p class="muted">This is research code. It is not a compliance system of record, and its output is not legal advice.</p>
+</div></body></html>

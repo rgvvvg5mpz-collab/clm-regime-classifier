@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Developer Handoff Guide</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body><div class="wrap">
+<nav class="top">
+  <a href="README.html">Overview</a>
+  <a href="methodology.html">Methodology</a>
+  <a href="architecture.html">Architecture</a>
+  <a class="on" href="developer_guide.html">Developer guide</a>
+  <a href="../app/DEV_README.html">Chat UI dev README</a>
+  <a href="../Tests/index.html">Test runs</a>
+</nav>
+
+<h1>Developer handoff guide</h1>
+<p class="lede">For the engineer picking this up: where things stand, how to run everything, what will bite you,
+and what to do next, in priority order.</p>
+
+<h2>1. State of play (2026-10-05)</h2>
+<div class="scroll"><table>
+<tr><th>Area</th><th>Status</th><th>Notes</th></tr>
+<tr><td>7-class dataset from RegModels</td><td><span class="pill good">done</span></td><td>Deterministic rebuild; real fund name scrubbed</td></tr>
+<tr><td>Qwen3-8B on Apple Silicon (no vLLM)</td><td><span class="pill good">done</span></td><td>Parity-checked against the CLM model card</td></tr>
+<tr><td>Fine-tuned CLM heads</td><td><span class="pill good">done</span></td><td>0.977 in-dist / 0.732 OOD macro-F1; release asset <code>clm_regime_7way.pt</code></td></tr>
+<tr><td>OOD hard set (Fable 5.1)</td><td><span class="pill good">done</span></td><td>315 rows; labels not SME-adjudicated</td></tr>
+<tr><td>Inference pipeline (API + CLI)</td><td><span class="pill good">done</span></td><td><code>regime_clf/inference.py</code></td></tr>
+<tr><td>Chat UI + FP/FN flagging</td><td><span class="pill good">done</span></td><td>Tested end to end with the mock LLM; not yet with a live Claude key</td></tr>
+<tr><td>Automated tests / CI</td><td><span class="pill warn">not started</span></td><td>Only recorded runs in <code>Tests/</code>; see improvements</td></tr>
+<tr><td>Feedback → retraining loop</td><td><span class="pill warn">not started</span></td><td>Flags are captured but not yet consumed</td></tr>
+</table></div>
+
+<h2>2. Setup</h2>
+<pre><code>git clone https://github.com/rgvvvg5mpz-collab/clm-regime-classifier.git
+cd clm-regime-classifier
+python3 -m venv .venv &amp;&amp; .venv/bin/pip install -r requirements.txt
+git clone https://github.com/Contrastive-LM/CLM.git &amp;&amp; .venv/bin/pip install --no-deps -e CLM   # --no-deps: skips vLLM on macOS
+.venv/bin/clm-download                                          # reference heads -> ~/.cache/clm/
+gh release download v1.0 -p clm_regime_7way.pt -D regime_clf/checkpoints
+# Qwen3-8B (~16 GB) downloads to ~/.cache/huggingface on first use</code></pre>
+<p>On a CUDA box you can install CLM with its dependencies (<code>pip install -e CLM</code>), serve the encoder with
+vLLM, and pass <code>--emb-url http://host:8090/v1/embeddings</code> everywhere instead of loading Qwen3-8B in-process.</p>
+
+<h2>3. Everyday commands</h2>
+<pre><code>cd regime_clf
+../.venv/bin/python inference.py "text" --unit client_message           # one prediction
+../.venv/bin/python inference.py --jsonl in.jsonl --out preds.jsonl      # batch
+../.venv/bin/python evaluate.py --data &lt;labelled.jsonl&gt; --out ../Tests/&lt;YYYY-MM-DD&gt;_&lt;name&gt;
+../.venv/bin/python run_experiment.py --epochs 30 --lr 1e-3 --out ../Tests/&lt;date&gt;_train/run
+cd .. &amp;&amp; .venv/bin/python Tests/make_reports.py                           # refresh all report.html
+.venv/bin/python -m uvicorn app.server:app --port 8710                   # chat UI</code></pre>
+
+<h2>4. Code map</h2>
+<div class="scroll"><table>
+<tr><th>File</th><th>Read it when you…</th></tr>
+<tr><td><code>regime_clf/classes.py</code></td><td>change class wording. <b>This changes the candidate embeddings: retrain afterwards.</b></td></tr>
+<tr><td><code>regime_clf/build_dataset.py</code></td><td>add a track, change the mapping, or add scrub rules</td></tr>
+<tr><td><code>regime_clf/mps_embedder.py</code></td><td>touch encoding, caching, batch size or device</td></tr>
+<tr><td><code>regime_clf/run_experiment.py</code></td><td>change training (loss, optimiser, epochs) or baselines</td></tr>
+<tr><td><code>regime_clf/evaluate.py</code></td><td>add metrics or slices</td></tr>
+<tr><td><code>regime_clf/inference.py</code></td><td>change the production contract (<code>Prediction</code>, speaker masks)</td></tr>
+<tr><td><code>regime_clf/ood/</code></td><td>extend the OOD set (<code>SPEC.md</code> → new <code>raw_*.jsonl</code> → <code>build_ood.py</code>)</td></tr>
+<tr><td><code>app/</code></td><td>work on the UI; see <a href="../app/DEV_README.html">its dev README</a></td></tr>
+</table></div>
+
+<h2>5. Gotchas</h2>
+<ul>
+<li><b>Memory</b>: one Qwen3-8B per 24 GB Mac. Stop the UI server before running <code>evaluate.py</code>, or you'll swap heavily.</li>
+<li><b>Embedding cache</b>: <code>regime_clf/emb_cache/store.npy</code> (~200 MB, gitignored) is keyed by the exact state text (message + instruction). Changing <code>INSTRUCTIONS</code> invalidates every entry and costs ~18 min to rebuild on an M5 Pro. Changing <code>CLASSES</code> only re-embeds 7 texts, but needs retraining.</li>
+<li><b>Checkpoints carry their own class text</b>: <code>clm_regime_7way.pt</code> stores <code>classes</code> and <code>instructions</code>, and <code>inference.py</code> uses those, not <code>classes.py</code>. That stops a wording edit from silently mismatching a deployed checkpoint.</li>
+<li><b>Don't measure similarity on raw encoder embeddings</b>: they are extremely anisotropic (cos ≈ 0.997 between unrelated messages). Use the projected head space, or lexical TF-IDF for deduplication.</li>
+<li><b>Python 3.14</b> works with torch 2.14 / transformers 5.18. vLLM isn't installed on macOS (<code>--no-deps</code>).</li>
+<li><b>transformers 5</b> prints an "UNEXPECTED lm_head.weight" load report for <code>AutoModel</code>. That's expected (we load the base model, not the LM head).</li>
+<li><b>Name scrub</b>: <code>tools/name_check.py</code> holds the blocked real-firm names (ROT13-encoded so they never appear in repo text); <code>build_dataset.py</code> replaces them, and the release checklist runs the checker over every file.</li>
+</ul>
+
+<h2>6. Improvements, in priority order</h2>
+<h3>P0: correctness and trust</h3>
+<ol>
+<li><b>SME adjudication of the OOD set and the S-ID / S-P boundary.</b> The largest OOD error (S-ID → S-P, 19/45) is partly a labelling-convention gap. Have compliance write a one-page decision rule (e.g. "verification bypass or takeover → S-ID even if PII is mentioned") and relabel both training and OOD rows to it.</li>
+<li><b>Recall-first thresholds.</b> Production should under-report "compliant": 22/270 OOD violations were predicted compliant. Add a per-class decision rule (flag if <code>1 − p(compliant) ≥ τ</code>), tune τ on validation for a recall floor (e.g. ≥ 0.95 for 4530 theft and S-ID, mirroring RegModels' <code>recall_floor</code>), and report precision at that operating point.</li>
+<li><b>Calibration.</b> Measure ECE / reliability on validation and fit temperature scaling on <code>logit_scale</code>; the UI shows these probabilities to users.</li>
+<li><b>Automated tests.</b> Add <code>pytest</code> for <code>build_dataset</code> (counts, no conflicts, scrub), <code>inference</code> (golden predictions on ~20 fixed messages), <code>app</code> (FastAPI TestClient with <code>mock_llm</code>, feedback schema), plus a CI job that runs them with a stubbed embedder.</li>
+</ol>
+<h3>P1: generalization</h3>
+<ol start="5">
+<li><b>Train on harder data.</b> Generate a Fable training set along the same three OOD axes (but a disjoint seed and spec), mix it ~20% with RegModels, and keep <code>ood_hard_v1</code> strictly held out. This is the most likely fix for the 0.977 → 0.732 gap.</li>
+<li><b>Close the feedback loop.</b> Consume <code>app/data/feedback.jsonl</code>: an SME review queue (RegModels' <code>RLHF_RLAIF_UI</code> is the natural home), then gated retraining that refuses to promote a checkpoint which regresses in-dist test, OOD, or any per-class recall floor.</li>
+<li><b>Multi-label output.</b> Real messages can implicate two regimes (a complaint that also leaks an SSN). Switch the head objective to per-class sigmoid (noul questions) or report every class above a threshold.</li>
+<li><b>Sub-rule routing.</b> After the regime, call the matching RegModels per-track model for the fine label (e.g. <code>d1F_performance_projection</code>), giving an explainable two-stage system.</li>
+<li><b>Ensembling with the probe.</b> On OOD, the probe is at least as good as the heads (0.747 vs 0.732, CIs overlap), and their errors may differ. Try averaging probabilities.</li>
+</ol>
+<h3>P2: engineering</h3>
+<ol start="10">
+<li><b>GPU serving path.</b> Containerise <code>vllm serve Qwen/Qwen3-8B --runner pooling</code> + the FastAPI app; benchmark the advertised CLM latency on CUDA.</li>
+<li><b>Smaller encoder option.</b> The heads are tied to Qwen3-8B. Evaluate the upcoming CLM-35B (quality) and a distilled small encoder (cost) once checkpoints exist.</li>
+<li><b>Multiple seeds and wider grids.</b> Report mean ± sd over 3–5 seeds, and extend the probe grid beyond C = 100.</li>
+<li><b>Context-aware screening.</b> Today each message is scored alone. Include the previous turn in the state (the CLM state can be structured) so that "yes, do it" after a recommendation is caught.</li>
+<li><b>Streaming in the UI</b>, an auth layer for the app, and log rotation for <code>turns.jsonl</code>.</li>
+</ol>
+
+<h2>7. Release checklist</h2>
+<ol>
+<li>Retrain or evaluate; write results to a new dated <code>Tests/&lt;date&gt;_*</code> folder; run <code>Tests/make_reports.py</code>.</li>
+<li>Name check: <code>.venv/bin/python tools/name_check.py</code> must report 0 hits.</li>
+<li>Bump the release tag; attach <code>clm_regime_7way.pt</code> and its SHA-256; note in-dist and OOD macro-F1 in the release notes.</li>
+<li>Update headline numbers in <code>docs/README.html</code>, <code>README.md</code> and <code>CLAUDE.md</code>.</li>
+</ol>
+</div></body></html>

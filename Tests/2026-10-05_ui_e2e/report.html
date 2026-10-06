@@ -1,0 +1,84 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Chat UI end-to-end</title>
+<style>/* Shared stylesheet for docs/*.html and Tests/**/report.html (inlined into reports). */
+:root {
+  --bg: #fbfbf9; --surface: #ffffff; --text: #1c1c1a; --muted: #686862; --border: #e4e3de;
+  --accent: #2f5bd3; --accent-soft: #e8eefc; --good: #1f7a3a; --good-soft: #e5f3e9;
+  --bad: #b3261e; --bad-soft: #fbe9e7; --warn: #8a5a00; --warn-soft: #fbf1dc; --code: #f1f0ec;
+  --heat: 47, 91, 211;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #151514; --surface: #1d1d1b; --text: #ecebe6; --muted: #9c9b95; --border: #33322e;
+    --accent: #87a5f2; --accent-soft: #1f2840; --good: #7fd197; --good-soft: #16301e;
+    --bad: #f2a29b; --bad-soft: #3a1a18; --warn: #f0c46a; --warn-soft: #3a2c10; --code: #272623;
+    --heat: 135, 165, 242;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #151514; --surface: #1d1d1b; --text: #ecebe6; --muted: #9c9b95; --border: #33322e;
+  --accent: #87a5f2; --accent-soft: #1f2840; --good: #7fd197; --good-soft: #16301e;
+  --bad: #f2a29b; --bad-soft: #3a1a18; --warn: #f0c46a; --warn-soft: #3a2c10; --code: #272623;
+  --heat: 135, 165, 242;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+.wrap { max-width: 980px; margin: 0 auto; padding: 32px 16px 64px; }
+nav.top { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; margin-bottom: 28px;
+  padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+nav.top a { color: var(--muted); text-decoration: none; }
+nav.top a.on, nav.top a:hover { color: var(--text); }
+h1 { font-size: 28px; line-height: 1.25; margin: 0 0 6px; letter-spacing: -0.01em; }
+h2 { font-size: 20px; margin: 40px 0 10px; }
+h3 { font-size: 16px; margin: 24px 0 8px; }
+p, li { max-width: 74ch; }
+a { color: var(--accent); }
+.lede { color: var(--muted); font-size: 16px; margin: 0 0 20px; }
+code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+code { background: var(--code); padding: 1px 5px; border-radius: 4px; }
+pre { background: var(--code); padding: 12px 14px; border-radius: 8px; overflow-x: auto; line-height: 1.5; }
+pre code { background: none; padding: 0; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; margin: 8px 0 16px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.scroll { overflow-x: auto; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 16px 0; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+.card .k { font-size: 12px; color: var(--muted); }
+.card .v { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.card .s { font-size: 12px; color: var(--muted); }
+.pill { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 999px; padding: 1px 9px; }
+.pill.good { background: var(--good-soft); color: var(--good); }
+.pill.bad { background: var(--bad-soft); color: var(--bad); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.note { background: var(--accent-soft); border-radius: 8px; padding: 12px 14px; margin: 16px 0; }
+.note.warn { background: var(--warn-soft); }
+.muted { color: var(--muted); }
+.heat td.cell { text-align: center; min-width: 44px; font-variant-numeric: tabular-nums; }
+.heat th.rot { font-size: 11px; text-transform: none; letter-spacing: 0; }
+figure { margin: 16px 0; }
+figure svg { width: 100%; height: auto; display: block; }
+figcaption { font-size: 13px; color: var(--muted); margin-top: 6px; }
+.bar { height: 8px; background: var(--code); border-radius: 4px; overflow: hidden; min-width: 80px; }
+.bar > span { display: block; height: 100%; background: var(--accent); }
+@media (max-width: 600px) {
+  .wrap { padding: 20px 16px 48px; }
+  h1 { font-size: 23px; }
+  th, td { padding: 6px 6px; }
+}
+</style></head><body><div class="wrap">
+<nav class="top"><a href="../../Tests/index.html">All test runs</a><a href="../../docs/README.html">Docs</a>
+<a href="../../docs/methodology.html">Methodology</a><a href="../../docs/architecture.html">Architecture</a></nav>
+<h1>Chat UI end-to-end — 2026-10-05</h1>
+<p class="lede">Manual browser run of <code>app/server.py</code> against the offline mock LLM. The flag submitted here was a
+deliberate test of the feedback path (the reply really was a FINRA 2210 problem).</p>
+<table><tr><th>Check</th><th>Result</th></tr><tr><td>UI loads, presets populate, provider switch shows Base URL</td><td><span class="pill good">pass</span></td></tr><tr><td>Chat via OpenAI-compatible endpoint (app/mock_llm.py)</td><td><span class="pill good">pass</span></td></tr><tr><td>User message screened → FINRA 4530 (0.998)</td><td><span class="pill good">pass</span></td></tr><tr><td>Reply screened → FINRA 2210 (1.000)</td><td><span class="pill good">pass</span></td></tr><tr><td>Turn written to app/data/turns.jsonl</td><td><span class="pill good">pass</span></td></tr><tr><td>False-positive flag written to app/data/feedback.jsonl (finra_2210 → compliant)</td><td><span class="pill good">pass</span></td></tr></table>
+<h2>Latency of the screened turn</h2>
+<table><tr><th>Stage</th><th class="num">seconds</th></tr>
+<tr><td>Screen user message (includes one-off classifier load)</td><td class="num">15.14</td></tr>
+<tr><td>LLM call (mock)</td><td class="num">0.046</td></tr>
+<tr><td>Screen reply (warm)</td><td class="num">0.084</td></tr></table>
+<h2>Files</h2><ul><li><code>turns.jsonl</code>, <code>feedback.jsonl</code> — copies of what the server wrote</li></ul></div></body></html>

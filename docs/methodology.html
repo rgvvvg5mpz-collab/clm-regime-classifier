@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Regime Classifier Methodology</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body><div class="wrap">
+<nav class="top">
+  <a href="README.html">Overview</a>
+  <a class="on" href="methodology.html">Methodology</a>
+  <a href="architecture.html">Architecture</a>
+  <a href="developer_guide.html">Developer guide</a>
+  <a href="../app/DEV_README.html">Chat UI dev README</a>
+  <a href="../Tests/index.html">Test runs</a>
+</nav>
+
+<h1>Methodology</h1>
+<p class="lede">How the data was built, how CLM-8B was adapted, how the model was evaluated, and what the
+numbers do and don't support.</p>
+
+<h2>1. Task definition</h2>
+<p>Each input is one message from a broker-dealer's GenAI chat channel, written by either the client or the
+assistant. The output is a single label from seven classes: the regulation regime the message implicates, or
+<code>compliant</code>. This replaces RegModels' six per-regime binary/multi-label models with one router. It answers
+<i>which</i> regime applies, not which sub-rule; that finer call stays with the existing per-track models and human
+review.</p>
+<p>The speaker matters. FINRA 2210 and Reg BI judge what the <b>assistant</b> says; FINRA 4530, SEC 17a-3/4,
+Reg S-P and Reg S-ID judge what the <b>client</b> says. This matches how the RegModels tracks were built
+(<code>configs/tracks.json</code>, field <code>unit</code>).</p>
+
+<h2>2. Data</h2>
+<h3>Source</h3>
+<p>The six RegModels v2 splits in <code>slm-supervisory-suite/data/</code> (24,497 rows: train 19,567 / val 2,429 /
+test 2,501). Every row is synthetic: slot-filled templates plus some LLM augmentation.</p>
+<h3>Label mapping (<code>regime_clf/build_dataset.py</code>)</h3>
+<ul>
+<li>A row with any violation or complaint label → its track's class (e.g. any <code>d1*</code>/<code>d2</code>/… label in the 2210 track → <code>finra_2210</code>).</li>
+<li>A row with no labels (each track's negative class: <code>compliant</code>, <code>education_compliant</code>, <code>not_complaint</code>, <code>not_flagged</code>) → <code>compliant</code>.</li>
+<li>Multi-label rows (2–3% per track) all fall inside one track, so the regime label is never ambiguous.</li>
+<li>The original splits are kept, so nothing that was held out in RegModels leaks into training here.</li>
+<li>Checked: 0 exact duplicate texts across tracks or splits, and 0 texts with conflicting classes.</li>
+</ul>
+<h3>Scrubbing</h3>
+<p>33 source rows named a real fund family. Each mention is replaced with the fictional “Harborline” at build time.
+The RegModels source files themselves are unchanged.</p>
+<h3>Class balance</h3>
+<p>compliant 22.5% · finra_2210 21.9% · reg_bi 12.6% · finra_4530 11.0% · sec_17a3_17a4 10.9% · reg_sp 10.6% · reg_sid 10.4%
+(train). Imbalance is mild, so no reweighting was used. Macro-F1 is the headline metric so that small classes count equally.</p>
+
+<h2>3. Model</h2>
+<p>CLM-8B scores a (state, candidate) pair as <code>exp(logit_scale) · cos(state_head(e<sub>s</sub>), action_head(e<sub>c</sub>))</code>.
+Here <code>e</code> is a Qwen3-8B last-token-pooled, L2-normalised embedding, and each head is a 3-layer GELU MLP with
+LayerNorm (4096 → 1536 → 1536 → 512). A softmax over the candidates gives the class distribution. See
+<a href="architecture.html">Architecture</a> for the diagram.</p>
+<ul>
+<li><b>State text</b>: the message, a blank line, then a fixed question (<code>classes.INSTRUCTIONS</code>). This is the layout CLM's <code>schema.state_text</code> expects.</li>
+<li><b>Candidates</b>: one plain-English description per class (<code>classes.CLASSES</code>), written from the RegModels label definitions and checked against sample rows.</li>
+<li><b>Encoder</b>: CLM's reference stack serves Qwen3-8B through vLLM on CUDA. On Apple Silicon, <code>mps_embedder.py</code> runs Qwen3-8B in-process (bf16, MPS) with the same recipe: raw text, no special tokens, final post-norm hidden state of the last token, L2-normalised.</li>
+</ul>
+<div class="note"><b>Encoder parity check.</b> Two worked examples from the CLM model card were reproduced on the local
+encoder: “What causes tides?” gives 0.9937 for the correct answer (card: 0.993), and the billing/technical routing
+example gives billing 0.987 (card: 0.939). The rankings match and the confidence differs slightly, which is
+consistent with bf16-on-MPS vs vLLM numerics.</div>
+
+<h2>4. Training</h2>
+<ul>
+<li>Encoder frozen. All encoder embeddings are computed once and cached (text-keyed float16 store, <code>emb_cache/</code>).</li>
+<li>Both heads and <code>logit_scale</code> are initialised from the published <code>CLM_v0.1-8B.pt</code> and trained with softmax cross-entropy over the 7 candidates. This is the repo's <code>choice --loss softce</code> objective, reimplemented in <code>run_experiment.py</code> so it can train from the cached MPS embeddings.</li>
+<li>AdamW (weight decay 0.01), one-cycle LR, batch 256, 30 epochs. The checkpoint kept is the epoch with the best validation macro-F1.</li>
+<li>Learning-rate sweep {1e-4, 3e-4, 1e-3}, selected on validation only. 1e-3 won (val 0.9769, epoch 28). The first 15-epoch run at 1e-4 was undertrained (test 0.877).</li>
+<li>Seed 20933. On one M5 Pro, embedding takes ~18 min (24.5k texts), and training takes ~2 min per configuration.</li>
+</ul>
+
+<h2>5. Baselines</h2>
+<ul>
+<li><b>Zero-shot CLM</b>: the published heads, unchanged. Three candidate wordings × heads/raw-encoder space × with/without a label-free prior correction were tried (<code>zero_shot_variants.py</code>). The best macro-F1 was 0.236. With its default wording, the model sends nearly every message to <code>reg_bi</code>. The conclusion is that CLM-8B's zero-shot ability doesn't extend to this regulatory taxonomy, and it has to be fine-tuned.</li>
+<li><b>Linear probe</b>: multinomial logistic regression on the same frozen Qwen3-8B state embeddings. C was chosen on validation from {1, 10, 100}; 100 won, which is at the edge of the grid. This measures how much the CLM heads add beyond the encoder.</li>
+</ul>
+
+<h2>6. Evaluation protocol</h2>
+<ul>
+<li><b>In-distribution</b>: the RegModels v2 test split. It is never used for training or model selection.</li>
+<li><b>Out-of-distribution hard set</b>: 315 messages written by Claude Fable 5.1, run as three independent agents with one OOD axis each (105 messages per agent, 15 per class):
+  <ul><li><i>register_shift</i>: SMS fragments, voice-to-text, non-native English, legal-letter tone, buried signals, bullet/table answers;</li>
+  <li><i>adversarial_confuser</i>: compliant text full of trigger vocabulary; boundary cases where one regime dominates; negation, hypotheticals, sarcasm, quoted speech;</li>
+  <li><i>novel_scenario</i>: tokenized ETPs, structured notes, annuities, 529/HSA, trusts and POAs, estates, expats, AI-specific failures.</li></ul>
+  Every row carries a one-sentence rationale that names the nearest competing class. The generation spec is <code>regime_clf/ood/SPEC.md</code>.</li>
+<li><b>OOD integrity checks</b> (<code>ood/build_ood.py</code>): schema, label/speaker consistency, no real firm names, no exact matches with any split, and near-duplicates against train via character 3–5-gram TF-IDF cosine (threshold 0.80). Result: 0 rows dropped; median nearest-train similarity 0.30, p95 0.46.</li>
+<li><b>Speaker masking</b>: optionally restricts the softmax to the classes valid for the speaker. In-distribution it changes nothing, because the model already never crosses speakers. On OOD it adds +0.004 macro-F1.</li>
+<li><b>Uncertainty</b>: 95% percentile bootstrap (1,000 resamples) for accuracy and macro-F1.</li>
+</ul>
+
+<h2>7. Findings</h2>
+<ol>
+<li><b>Fine-tuned CLM heads are the best in-distribution model</b>: 0.977 [0.970, 0.983] vs probe 0.955 [0.946, 0.964]. The intervals don't overlap.</li>
+<li><b>Generalization is the real limit</b>: OOD macro-F1 is 0.732 [0.680, 0.778]. The probe scores 0.747 [0.697, 0.790], and the intervals overlap, so neither is significantly better on new text. Very-hard items score 68% vs 77% for hard ones.</li>
+<li><b>Error structure on OOD</b>: Reg S-ID → Reg S-P (19/45 S-ID rows); Reg BI → FINRA 2210 (14/45); violations predicted compliant (22/270, mostly S-P, 17a-3/4 and BI). FINRA 4530 holds up best (F1 0.91).</li>
+<li><b>Part of the S-ID/S-P gap is a labelling convention</b>. One Fable agent noted that the training data labels some identity-verification situations (e.g. an elderly parent handing a verification code to a caller) as Reg S-P, whereas the OOD set treats verification bypass and takeover as Reg S-ID. A compliance SME needs to settle that boundary before anyone retrains.</li>
+<li><b>Zero-shot doesn't work</b> for this taxonomy (macro-F1 ≤ 0.24 across all variants).</li>
+<li><b>Embedding geometry</b>: because every state ends with the same instruction, raw last-token embeddings of different messages sit at cosine ≈ 0.997. They can't be used for similarity or deduplication without the heads.</li>
+</ol>
+
+<h2>8. Limitations and threats to validity</h2>
+<ul>
+<li>Both train and test data are synthetic. The OOD set is also synthetic, from a different generator, so it measures robustness to <i>style and scenario shift</i>, not to real client traffic.</li>
+<li>OOD labels are Fable's, and only spot-checked, not SME-adjudicated. Some disagreement with the training labels reflects convention rather than model error (finding 4).</li>
+<li>Single label per message. Real messages can implicate two regimes; the OOD set deliberately excluded genuinely co-equal cases.</li>
+<li>One seed, one hardware platform. Reported latency is for an Apple M5 Pro; CUDA + vLLM will differ.</li>
+<li>The probe's C is at the edge of its grid, so the baseline may be slightly underestimated.</li>
+</ul>
+
+<h2>9. Reproducing</h2>
+<pre><code>cd regime_clf
+../.venv/bin/python build_dataset.py                          # data/
+../.venv/bin/python run_experiment.py --epochs 30 --lr 1e-3 --out ../Tests/&lt;date&gt;_in_distribution/sweep/lr_1e-3
+./sweep.sh ../Tests/&lt;date&gt;_in_distribution/sweep               # full LR sweep
+../.venv/bin/python evaluate.py --data data/test.jsonl --out ../Tests/&lt;date&gt;_in_distribution/eval_test
+../.venv/bin/python ood/build_ood.py
+../.venv/bin/python evaluate.py --data ood/ood_hard_v1.jsonl --out ../Tests/&lt;date&gt;_ood_fable_hard
+../.venv/bin/python zero_shot_variants.py ../Tests/&lt;date&gt;_in_distribution/zero_shot_variants.json
+cd .. &amp;&amp; .venv/bin/python Tests/make_reports.py</code></pre>
+</div></body></html>
