@@ -107,14 +107,25 @@ def index():
 
 @app.get("/api/config")
 def get_config():
+    labels, unit_classes = _label_space()
     return {"presets": CONFIG["presets"], "system_prompt": CONFIG.get("system_prompt", ""),
             "on_flagged_response": CONFIG["screening"].get("on_flagged_response", "warn"),
-            "labels": _labels()}
+            "labels": labels, "unit_classes": unit_classes}
 
 
-def _labels():
-    from inference import RULE_NAMES
-    return RULE_NAMES
+def _label_space():
+    """{label: display name} and {unit: [labels]} for the model the UI will use: the loaded
+    classifier's if it is up, else the checkpoint's own class list (cheap: heads only)."""
+    import torch
+    from inference import RULE_NAMES, UNIT_CLASSES
+    if _clf is not None:
+        labels = _clf.labels
+    else:
+        ck = torch.load(os.path.join(ROOT, CONFIG["classifier"]["checkpoint"]), map_location="cpu")
+        labels = list(ck["classes"])
+    neg = labels[0]
+    return ({l: RULE_NAMES.get(l, l) for l in labels},
+            {u: [neg] + [l for l in ls if l in labels] for u, ls in UNIT_CLASSES.items()})
 
 
 @app.get("/api/health")

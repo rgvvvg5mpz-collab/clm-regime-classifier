@@ -46,6 +46,9 @@ async function loadConfig() {
   sel.onchange = () => applyPreset(state.config.presets[sel.value]);
   applyPreset(state.config.presets[0]);
   $("system").value = state.config.system_prompt || "";
+  const names = (u) => state.config.unit_classes[u].slice(1).map((k) => state.labels[k] || k).join(", ");
+  const note = $("scopeNote");
+  if (note) note.textContent = `Your message is checked against ${names("client_message")}. The model's reply is checked against ${names("assistant_response")}.`;
   $("apiKey").value = ss("apiKey") || "";
   const h = await api("/api/health");
   setClf(h.classifier_loaded ? "on" : "off");
@@ -103,12 +106,12 @@ function openFlag(box, btn, ctx) {
   if (box.querySelector(".flagform")) return;
   const form = $("flagTpl").content.firstElementChild.cloneNode(true);
   const sel = form.querySelector("select");
-  const allowed = ctx.target === "user"
-    ? ["compliant", "finra_4530", "sec_17a3_17a4", "reg_sp", "reg_sid"]
-    : ["compliant", "finra_2210", "reg_bi"];
-  allowed.filter((k) => ctx.kind === "false_positive" ? k !== ctx.v.label : k !== "compliant")
+  const unit = ctx.target === "user" ? "client_message" : "assistant_response";
+  const allowed = state.config.unit_classes[unit];
+  const negative = allowed[0];
+  allowed.filter((k) => ctx.kind === "false_positive" ? k !== ctx.v.label : k !== negative)
     .forEach((k) => sel.add(new Option(state.labels[k] || k, k)));
-  if (ctx.kind === "false_positive") sel.value = "compliant";
+  if (ctx.kind === "false_positive") sel.value = negative;
   form.querySelector(".cancel").onclick = () => form.remove();
   form.onsubmit = async (e) => {
     e.preventDefault();

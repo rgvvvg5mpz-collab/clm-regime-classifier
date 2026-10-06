@@ -21,7 +21,7 @@ METHODS = [("clm_finetuned_unit_masked", "CLM-8B fine-tuned heads (unit-masked)"
            ("clm_finetuned", "CLM-8B fine-tuned heads"),
            ("linear_probe", "Linear probe on Qwen3-8B embeddings"),
            ("clm_zero_shot", "CLM-8B zero-shot (reference heads)")]
-NAMES = {"compliant": "Compliant", "finra_2210": "FINRA 2210", "reg_bi": "Reg BI",
+NAMES = {"compliant": "Compliant", "no_flag": "No flag", "finra_2210": "FINRA 2210", "reg_bi": "Reg BI",
          "finra_4530": "FINRA 4530", "sec_17a3_17a4": "SEC 17a-3/4", "reg_sp": "Reg S-P",
          "reg_sid": "Reg S-ID"}
 e = html.escape
@@ -126,9 +126,13 @@ def in_distribution(d: str) -> dict:
         f"<td class='num'>{v['macro_f1']:.4f}</td></tr>" for k, v in sweep.items())
     zs_rows = "".join(f"<tr><td><code>{e(k)}</code></td><td class='num'>{pct(v['accuracy'])}</td>"
                       f"<td class='num'>{v['macro_f1']:.3f}</td></tr>" for k, v in sorted(zs.items(), key=lambda kv: -kv[1]['macro_f1']))
-    body = f"""<h1>In-distribution test — 2026-10-05</h1>
-<p class="lede">RegModels v2 test split ({M['n']:,} messages, 7 classes), never seen in training or model selection.
-Hyper-parameters picked on the validation split only.</p>
+    hp = T["clm_finetuned"].get("hparams", {})
+    best_ep = max(T["clm_finetuned"]["history"], key=lambda h: h["val_macro_f1"])["epoch"]
+    label_set = M.get("label_set", "7way")
+    date = os.path.basename(d)[:10]
+    body = f"""<h1>In-distribution test, {len(M['labels'])}-class ({e(label_set)}) — {date}</h1>
+<p class="lede">RegModels v2 test split ({M['n']:,} messages, {len(M['labels'])} classes: {", ".join(NAMES[l] for l in M['labels'])}),
+never seen in training or model selection. Hyper-parameters picked on the validation split only.</p>
 <div class="cards">
 <div class="card"><div class="k">Macro-F1 (CLM fine-tuned)</div><div class="v">{best['macro_f1']:.3f}</div><div class="s">95% CI {best['macro_f1_95ci'][0]:.3f}–{best['macro_f1_95ci'][1]:.3f}</div></div>
 <div class="card"><div class="k">Accuracy</div><div class="v">{pct(best['accuracy'])}</div><div class="s">{M['n']:,} test rows</div></div>
@@ -141,11 +145,9 @@ Hyper-parameters picked on the validation split only.</p>
 <h2>Learning-rate sweep (selected on validation)</h2>
 <div class="scroll"><table><tr><th>Config</th><th class="num">Best val macro-F1</th><th class="num">Best epoch</th><th class="num">Test macro-F1</th></tr>{sweep_rows}</table></div>
 {line_chart({k: [h['val_macro_f1'] for h in v['history']] for k, v in sweep.items()}, 'Validation macro-F1')}
-<p>Selected: <b>lr 1e-3</b>, 30 epochs, batch 256, AdamW (wd 0.01), one-cycle schedule, softmax-CE over the 7 candidates,
-heads initialised from <code>CLM_v0.1-8B.pt</code>. Checkpoint = epoch with best validation macro-F1.</p>
-<h2>Zero-shot ablation</h2>
-<p>Candidate wording and a label-free prior correction (<code>+centered</code>) were varied; none get close to usable.</p>
-<div class="scroll"><table><tr><th>Variant</th><th class="num">Accuracy</th><th class="num">Macro-F1</th></tr>{zs_rows}</table></div>
+<p>Selected: <b>lr {hp.get('lr', '?')}</b>, {hp.get('epochs', '?')} epochs, batch {hp.get('batch', '?')}, AdamW (wd 0.01), one-cycle schedule,
+softmax-CE over the {len(M['labels'])} candidates, heads initialised from <code>CLM_v0.1-8B.pt</code>. Checkpoint = epoch {best_ep} (best validation macro-F1).</p>
+{"<h2>Zero-shot ablation</h2><p>Candidate wording and a label-free prior correction (<code>+centered</code>) were varied; none get close to usable.</p><div class='scroll'><table><tr><th>Variant</th><th class='num'>Accuracy</th><th class='num'>Macro-F1</th></tr>" + zs_rows + "</table></div>" if zs_rows else ""}
 <h2>Latency (Apple M5 Pro, 24 GB)</h2>
 <table><tr><th>Stage</th><th class="num">ms / message</th></tr>
 <tr><td>Qwen3-8B encoder (bf16, MPS, batch 16)</td><td class="num">{lat.get('encoder_ms_per_message', float('nan')):.1f}</td></tr>
@@ -153,7 +155,7 @@ heads initialised from <code>CLM_v0.1-8B.pt</code>. Checkpoint = epoch with best
 <h2>Files</h2><ul><li><code>eval_test/metrics.json</code>, <code>eval_test/predictions.jsonl</code></li>
 <li><code>training_metrics.json</code> (selected run incl. per-epoch history)</li><li><code>sweep/lr_*/</code> metrics and test errors per config</li>
 <li><code>zero_shot_variants.json</code>, <code>encoder_latency.json</code>, <code>sweep_logs/</code></li></ul>"""
-    return {"title": "In-distribution test", "body": body, "kind": "Training + held-out test",
+    return {"title": f"In-distribution test ({len(M['labels'])}-class)", "body": body, "kind": f"Training + held-out test, {label_set}",
             "n": M["n"], "macro_f1": best["macro_f1"], "ci": best["macro_f1_95ci"], "acc": best["accuracy"],
             "baseline": M["linear_probe"]["macro_f1"]}
 
@@ -170,9 +172,10 @@ def ood(d: str) -> dict:
     axes = collections.Counter(p.get("ood_axis") for p in preds)
     cos = [p["max_cos_to_train"] for p in preds if "max_cos_to_train" in p]
     diff_label = " / ".join(k for k, _ in sorted(diff.items(), key=lambda kv: ["low", "medium", "hard", "very_hard"].index(kv[0]) if kv[0] in ["low", "medium", "hard", "very_hard"] else 9))
-    short = os.path.basename(d).split("_", 1)[1].replace("_", " ").removeprefix("ood ")
+    short = " ".join(t for t in os.path.basename(d).split("_")[1:] if t != "ood")
     date = os.path.basename(d)[:10]
-    title = f"OOD validation, {diff_label} difficulty (Fable-generated)"
+    label_set = M.get("label_set", "7way")
+    title = f"OOD validation, {diff_label} difficulty, {len(M['labels'])}-class ({label_set})"
     notes_p = os.path.join(d, "notes.html")
     notes = open(notes_p).read() if os.path.exists(notes_p) else ""
     sim = (f" Median char-n-gram similarity to the nearest training text: {statistics.median(cos):.2f}; "
@@ -190,16 +193,16 @@ def ood(d: str) -> dict:
         f"<td><span class='pill bad'>{NAMES[p['pred']]}</span> <span class='muted'>{p['p_pred']:.2f}</span></td>"
         f"<td class='muted'>{e(p.get('difficulty', ''))}<br>{e(p.get('ood_axis', ''))}</td></tr>" for p in errs[:25])
     missed = sum(r[0] for r in best["confusion"][1:])
-    n_viol = M["n"] - M["label_counts"].get("compliant", 0)
+    n_viol = M["n"] - M["label_counts"].get(M["labels"][0], 0)
     body = f"""<h1>{e(title)} — {date}</h1>
 <p class="lede">{M['n']} messages written by Claude Fable 5.1 to be out of distribution:
 {", ".join(f"{v} {k}" for k, v in sorted(diff.items()))} difficulty; axes {", ".join(f"{k} {v}" for k, v in sorted(axes.items()))};
 {M['n'] // len(M['labels'])} per class.{sim} Spec: <code>regime_clf/ood/SPEC.md</code>.</p>
 <div class="cards">
 <div class="card"><div class="k">Macro-F1 (CLM fine-tuned, unit-masked)</div><div class="v">{best['macro_f1']:.3f}</div><div class="s">95% CI {best['macro_f1_95ci'][0]:.3f}–{best['macro_f1_95ci'][1]:.3f}</div></div>
-<div class="card"><div class="k">Accuracy</div><div class="v">{pct(best['accuracy'])}</div><div class="s">vs 97.9% in-distribution</div></div>
+<div class="card"><div class="k">Accuracy</div><div class="v">{pct(best['accuracy'])}</div><div class="s">{M['n']} rows</div></div>
 <div class="card"><div class="k">Linear probe</div><div class="v">{M['linear_probe']['macro_f1']:.3f}</div><div class="s">macro-F1, same embeddings</div></div>
-<div class="card"><div class="k">Missed violations</div><div class="v">{missed}</div><div class="s">of {n_viol} non-compliant → predicted compliant</div></div>
+<div class="card"><div class="k">Missed violations</div><div class="v">{missed}</div><div class="s">of {n_viol} in-class violations → predicted {NAMES[M['labels'][0]].lower()}</div></div>
 </div>
 {notes}
 <h2>Methods</h2>{methods_table(M)}
@@ -208,13 +211,14 @@ def ood(d: str) -> dict:
 <h2>By difficulty</h2>{slice_table('by_difficulty')}
 <h2>By OOD axis</h2>{slice_table('by_ood_axis')}
 <h2>By speaker</h2>{slice_table('by_unit')}
+{"<h2>By source label (out-of-class rows are gold " + NAMES[M['labels'][0]].lower() + ")</h2>" + slice_table('by_source_label') if 'by_source_label' in best and len(best['by_source_label']) > len(M['labels']) else ""}
 <h2>Sample errors ({len(errs)} total; first 25)</h2>
 <div class="scroll"><table><tr><th>Text</th><th>Gold</th><th>Predicted</th><th>Difficulty / axis</th></tr>{err_rows}</table></div>
 <h2>Files</h2><ul><li><code>metrics.json</code>: all methods, slices, CIs</li>
 <li><code>predictions.jsonl</code>: every row with gold, prediction, Fable's rationale</li>
 <li><code>notes.html</code>: interpretation (optional)</li>
 <li>Data: <code>{e(M['data'])}</code> (built by <code>regime_clf/ood/build_ood.py</code>)</li></ul>"""
-    return {"title": f"OOD {short}", "body": body, "kind": f"OOD validation ({diff_label})",
+    return {"title": f"OOD {short} ({len(M['labels'])}-class)", "body": body, "kind": f"OOD validation ({diff_label}), {label_set}",
             "n": M["n"], "macro_f1": best["macro_f1"], "ci": best["macro_f1_95ci"], "acc": best["accuracy"],
             "baseline": M["linear_probe"]["macro_f1"]}
 

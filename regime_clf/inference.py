@@ -28,18 +28,20 @@ import torch
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
-from classes import CLASSES as DEFAULT_CLASSES, INSTRUCTIONS as DEFAULT_INSTRUCTIONS  # noqa: E402
+from classes import CKPT_NAME, CLASSES as DEFAULT_CLASSES, INSTRUCTIONS as DEFAULT_INSTRUCTIONS  # noqa: E402
 from clm.heads import HeadPair  # noqa: E402
 from clm.schema import state_text  # noqa: E402
 
-DEFAULT_CKPT = os.environ.get("REGIME_CKPT", os.path.join(HERE, "checkpoints", "clm_regime_7way.pt"))
-NEGATIVE = "compliant"
+DEFAULT_CKPT = os.environ.get("REGIME_CKPT", os.path.join(HERE, "checkpoints", CKPT_NAME))
+# Which classes can apply to which speaker; the negative class (always first) applies to both.
+# Filtered to the checkpoint's own label set at load time.
 UNIT_CLASSES = {
-    "client_message": ["compliant", "finra_4530", "sec_17a3_17a4", "reg_sp", "reg_sid"],
-    "assistant_response": ["compliant", "finra_2210", "reg_bi"],
+    "client_message": ["finra_4530", "sec_17a3_17a4", "reg_sp", "reg_sid"],
+    "assistant_response": ["finra_2210", "reg_bi"],
 }
 RULE_NAMES = {
     "compliant": "No issue",
+    "no_flag": "No flag",
     "finra_2210": "FINRA Rule 2210 (communications)",
     "reg_bi": "Regulation Best Interest",
     "finra_4530": "FINRA Rule 4530 (customer complaint)",
@@ -63,12 +65,14 @@ class RegimeClassifier:
                  emb_model: str = "qwen3-8b", device: str = "cpu"):
         if not os.path.exists(checkpoint):
             raise FileNotFoundError(
-                f"{checkpoint} not found - download clm_regime_7way.pt from the GitHub release "
+                f"{checkpoint} not found - download it from the GitHub release "
                 "into regime_clf/checkpoints/ or set REGIME_CKPT")
         ck = torch.load(checkpoint, map_location="cpu")
         self.classes: dict[str, str] = ck.get("classes", DEFAULT_CLASSES)
         self.instructions: str = ck.get("instructions", DEFAULT_INSTRUCTIONS)
         self.labels = list(self.classes)
+        self.negative = self.labels[0]
+        self.unit_classes = {u: [self.negative] + [l for l in ls if l in self.classes] for u, ls in UNIT_CLASSES.items()}
         self.heads = HeadPair("regime", checkpoint, device).ensure()
         if emb_url:
             from clm.embedder import Embedder
@@ -88,7 +92,7 @@ class RegimeClassifier:
     def classify(self, texts: list[str], unit: str | None = None) -> list[Prediction]:
         lg = self.logits(texts)
         if unit:
-            keep = UNIT_CLASSES[unit]
+            keep = self.unit_classes[unit]
             lg = np.where(np.isin(self.labels, keep)[None, :], lg, -np.inf)
         p = np.exp(lg - lg.max(1, keepdims=True))
         p /= p.sum(1, keepdims=True)
@@ -96,7 +100,7 @@ class RegimeClassifier:
         for row in p:
             j = int(row.argmax())
             label = self.labels[j]
-            out.append(Prediction(label=label, rule=RULE_NAMES.get(label, label), flagged=label != NEGATIVE,
+            out.append(Prediction(label=label, rule=RULE_NAMES.get(label, label), flagged=label != self.negative,
                                   confidence=float(row[j]),
                                   probabilities={l: round(float(v), 5) for l, v in zip(self.labels, row)}))
         return out

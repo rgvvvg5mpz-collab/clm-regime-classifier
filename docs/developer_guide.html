@@ -25,7 +25,8 @@ and what to do next, in priority order.</p>
 <tr><th>Area</th><th>Status</th><th>Notes</th></tr>
 <tr><td>7-class dataset from RegModels</td><td><span class="pill good">done</span></td><td>Deterministic rebuild; real fund name scrubbed</td></tr>
 <tr><td>Qwen3-8B on Apple Silicon (no vLLM)</td><td><span class="pill good">done</span></td><td>Parity-checked against the CLM model card</td></tr>
-<tr><td>Fine-tuned CLM heads</td><td><span class="pill good">done</span></td><td>0.977 in-dist / 0.732 OOD hard / 0.748 OOD low-medium macro-F1; release asset <code>clm_regime_7way.pt</code></td></tr>
+<tr><td>Fine-tuned CLM heads, 7-way</td><td><span class="pill good">done</span></td><td>0.977 in-dist / 0.732 OOD hard / 0.748 OOD low-medium macro-F1; release v1.0 <code>clm_regime_7way.pt</code></td></tr>
+<tr><td>Fine-tuned CLM heads, 5-way (no S-P / S-ID; out-of-class → no flag)</td><td><span class="pill good">done</span></td><td>0.983 / 0.800 / 0.830; release v1.1 <code>clm_regime_5way.pt</code>; UI default</td></tr>
 <tr><td>OOD sets (Fable 5.1)</td><td><span class="pill good">done</span></td><td>hard/very-hard 315 rows + low/medium 210 rows; labels not SME-adjudicated</td></tr>
 <tr><td>Inference pipeline (API + CLI)</td><td><span class="pill good">done</span></td><td><code>regime_clf/inference.py</code></td></tr>
 <tr><td>Chat UI + FP/FN flagging</td><td><span class="pill good">done</span></td><td>Tested end to end with the mock LLM; not yet with a live Claude key</td></tr>
@@ -39,8 +40,12 @@ cd clm-regime-classifier
 python3 -m venv .venv &amp;&amp; .venv/bin/pip install -r requirements.txt
 git clone https://github.com/Contrastive-LM/CLM.git &amp;&amp; .venv/bin/pip install --no-deps -e CLM   # --no-deps: skips vLLM on macOS
 .venv/bin/clm-download                                          # reference heads -> ~/.cache/clm/
-gh release download v1.0 -p clm_regime_7way.pt -D regime_clf/checkpoints
+gh release download v1.1 -p clm_regime_5way.pt -D regime_clf/checkpoints   # 5-way, UI default
+gh release download v1.0 -p clm_regime_7way.pt -D regime_clf/checkpoints   # 7-way
 # Qwen3-8B (~16 GB) downloads to ~/.cache/huggingface on first use</code></pre>
+<p><b>Label sets.</b> <code>REGIME_LABEL_SET=7way</code> (default) or <code>5way</code> selects the class list, data directory
+(<code>data/</code> vs <code>data_5way/</code>) and checkpoint name for every script in <code>regime_clf/</code>. Checkpoints carry their own
+class list, so <code>inference.py</code> and the chat UI adapt to whichever file they load.</p>
 <p>On a CUDA box you can install CLM with its dependencies (<code>pip install -e CLM</code>), serve the encoder with
 vLLM, and pass <code>--emb-url http://host:8090/v1/embeddings</code> everywhere instead of loading Qwen3-8B in-process.</p>
 
@@ -56,7 +61,7 @@ cd .. &amp;&amp; .venv/bin/python Tests/make_reports.py                         
 <h2>4. Code map</h2>
 <div class="scroll"><table>
 <tr><th>File</th><th>Read it when you…</th></tr>
-<tr><td><code>regime_clf/classes.py</code></td><td>change class wording. <b>This changes the candidate embeddings: retrain afterwards.</b></td></tr>
+<tr><td><code>regime_clf/classes.py</code></td><td>change class wording or add a label set. <b>Changing a class text changes the candidate embeddings: retrain afterwards.</b> Keep <code>INSTRUCTIONS</code> identical across label sets so the 24.5k cached state embeddings stay valid.</td></tr>
 <tr><td><code>regime_clf/build_dataset.py</code></td><td>add a track, change the mapping, or add scrub rules</td></tr>
 <tr><td><code>regime_clf/mps_embedder.py</code></td><td>touch encoding, caching, batch size or device</td></tr>
 <tr><td><code>regime_clf/run_experiment.py</code></td><td>change training (loss, optimiser, epochs) or baselines</td></tr>
@@ -81,7 +86,8 @@ cd .. &amp;&amp; .venv/bin/python Tests/make_reports.py                         
 <h3>P0: correctness and trust</h3>
 <ol>
 <li><b>SME adjudication of the OOD sets and the S-ID / S-P boundary.</b> The largest OOD error (S-ID → S-P: 19/45 on the hard set, 12/30 on low/medium) is partly a labelling-convention gap. Have compliance write a one-page decision rule (e.g. "verification bypass or takeover → S-ID even if PII is mentioned") and relabel both training and OOD rows to it.</li>
-<li><b>Recall-first thresholds.</b> Production should under-report "compliant": 22/270 OOD violations were predicted compliant. Add a per-class decision rule (flag if <code>1 − p(compliant) ≥ τ</code>), tune τ on validation for a recall floor (e.g. ≥ 0.95 for 4530 theft and S-ID, mirroring RegModels' <code>recall_floor</code>), and report precision at that operating point.</li>
+<li><b>Decide what “no flag” means in production.</b> The 5-way model deliberately treats privacy and identity-theft content as nothing to flag. If those matters still need a route, pair it with the 7-way model or a dedicated S-P/S-ID detector, and measure the out-of-class false-flag rate (currently 13% on hard, 20% on low/medium S-P/S-ID rows, mostly identity-theft reports read as complaints).</li>
+<li><b>Recall-first thresholds.</b> Production should under-report the negative class: 22/270 OOD violations were predicted compliant by the 7-way model, 25/180 no-flag by the 5-way model. Add a per-class decision rule (flag if <code>1 − p(compliant) ≥ τ</code>), tune τ on validation for a recall floor (e.g. ≥ 0.95 for 4530 theft and S-ID, mirroring RegModels' <code>recall_floor</code>), and report precision at that operating point.</li>
 <li><b>Calibration.</b> Measure ECE / reliability on validation and fit temperature scaling on <code>logit_scale</code>; the UI shows these probabilities to users.</li>
 <li><b>Automated tests.</b> Add <code>pytest</code> for <code>build_dataset</code> (counts, no conflicts, scrub), <code>inference</code> (golden predictions on ~20 fixed messages), <code>app</code> (FastAPI TestClient with <code>mock_llm</code>, feedback schema), plus a CI job that runs them with a stubbed embedder.</li>
 </ol>
@@ -91,7 +97,8 @@ cd .. &amp;&amp; .venv/bin/python Tests/make_reports.py                         
 <li><b>Close the feedback loop.</b> Consume <code>app/data/feedback.jsonl</code>: an SME review queue (RegModels' <code>RLHF_RLAIF_UI</code> is the natural home), then gated retraining that refuses to promote a checkpoint which regresses in-dist test, OOD, or any per-class recall floor.</li>
 <li><b>Multi-label output.</b> Real messages can implicate two regimes (a complaint that also leaks an SSN). Switch the head objective to per-class sigmoid (noul questions) or report every class above a threshold.</li>
 <li><b>Sub-rule routing.</b> After the regime, call the matching RegModels per-track model for the fine label (e.g. <code>d1F_performance_projection</code>), giving an explainable two-stage system.</li>
-<li><b>Ensembling with the probe.</b> On OOD, the probe is at least as good as the heads (0.747 vs 0.732, CIs overlap), and their errors may differ. Try averaging probabilities.</li>
+<li><b>Ensembling with the probe.</b> On OOD, the probe is at least as good as the heads for both label sets (7-way: 0.747 vs 0.732; 5-way hard: 0.833 vs 0.800; CIs overlap), and their errors may differ. Try averaging probabilities.</li>
+<li><b>Don't expect label-set changes to fix generalization.</b> Dropping S-P/S-ID raised OOD macro-F1 from 0.73 to 0.80–0.83, but the 7-way model collapsed to five classes scores the same. Compare like for like (collapse predictions) before crediting a retrain.</li>
 </ol>
 <h3>P2: engineering</h3>
 <ol start="10">

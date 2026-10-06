@@ -1,0 +1,12 @@
+<div class="note warn"><b>Read this first.</b> Macro-F1 <b>0.800</b> [0.748, 0.846], up from 0.732 for the 7-way model on the same
+315 rows. But the 7-way model's predictions collapsed to these five classes score 0.822, so the rise comes from the task
+getting easier (the two hardest regimes are no longer scored), not from the new training. The linear probe (0.833) is
+again at least as good as the CLM heads; CIs overlap.</div>
+<ul>
+<li><b>Out-of-class handling.</b> The 90 Reg S-P / Reg S-ID rows are gold “no flag” here. 78 are handled correctly; 12 are
+false flags (6 → FINRA 4530, 6 → SEC 17a-3/4). S-P rows are 93% correct, S-ID rows 80%: an identity-theft report phrased
+as a grievance still reads as a complaint.</li>
+<li><b>Reg BI → FINRA 2210 is now the dominant error</b>: 16 of 45 Reg BI rows (F1 0.69). It did not improve with retraining.</li>
+<li>Violations predicted no-flag: 25 of 180 in-class violations (11 of them 17a-3/4).</li>
+<li>By difficulty: hard 85.8%, very hard 75.7%.</li>
+</ul>

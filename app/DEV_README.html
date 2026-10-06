@@ -30,6 +30,11 @@ open http://localhost:8710</code></pre>
 <pre><code>.venv/bin/python -m uvicorn app.mock_llm:app --port 8799
 # message containing "guarantee" -> FINRA 2210-style reply; "recommend" -> Reg BI-style reply</code></pre>
 <p>The first message loads Qwen3-8B (~15–20 s, ~16 GB). Press <b>Load</b> in the sidebar to warm it up first.</p>
+<p><b>Which model:</b> <code>classifier.checkpoint</code> in <code>config.yaml</code>. Default is the 5-way
+<code>clm_regime_5way.pt</code> (no flag + FINRA 2210, Reg BI, FINRA 4530, SEC 17a-3/4; privacy and identity-theft content is
+<i>not</i> flagged). Point it at <code>clm_regime_7way.pt</code> to also flag Reg S-P and Reg S-ID. The UI reads the class list
+from the checkpoint (<code>/api/config</code> → <code>labels</code>, <code>unit_classes</code>), so the verdict chips, the
+flag form and the scope note adapt automatically.</p>
 
 <h2>2. What happens on a turn</h2>
 <ol>
@@ -58,7 +63,7 @@ open http://localhost:8710</code></pre>
 <h2>4. API</h2>
 <div class="scroll"><table>
 <tr><th>Route</th><th>Body</th><th>Returns</th></tr>
-<tr><td><code>GET /api/config</code></td><td>-</td><td>presets (no keys), system prompt, screening mode, label names</td></tr>
+<tr><td><code>GET /api/config</code></td><td>-</td><td>presets (no keys), system prompt, screening mode, <code>labels</code> {key: display name} for the loaded checkpoint, <code>unit_classes</code> {speaker: [labels]}</td></tr>
 <tr><td><code>GET /api/health</code></td><td>-</td><td><code>{classifier_loaded}</code></td></tr>
 <tr><td><code>POST /api/warmup</code></td><td><code>{}</code></td><td>loads the classifier; <code>{seconds}</code></td></tr>
 <tr><td><code>POST /api/classify</code></td><td><code>{texts: [..], unit?}</code></td><td>list of <code>Prediction</code></td></tr>
@@ -78,8 +83,8 @@ open http://localhost:8710</code></pre>
 format, add a branch in <code>llm.chat()</code> and a function returning the reply text; raise <code>LLMError</code> with a
 human-readable message on failure. For Claude, always go through the <code>anthropic</code> SDK.</p>
 <h3>Change what gets screened</h3>
-<p>Speaker-to-class masks live in <code>regime_clf/inference.py</code> (<code>UNIT_CLASSES</code>); the flag form mirrors
-them in <code>app.js</code> (<code>openFlag</code>). Keep the two in sync. Set <code>screening.unit_masking: false</code> to score all
+<p>Speaker-to-class masks live in <code>regime_clf/inference.py</code> (<code>UNIT_CLASSES</code>, filtered to the checkpoint's
+classes at load time); the flag form takes them from <code>/api/config</code>, so there is nothing to keep in sync. Set <code>screening.unit_masking: false</code> to score all
 seven classes for both speakers.</p>
 <h3>Use a GPU encoder</h3>
 <p>Set <code>classifier.emb_url</code> to a vLLM pooling server (<code>vllm serve Qwen/Qwen3-8B --runner pooling --port 8090</code>).
@@ -96,6 +101,7 @@ The server then loads only the 75 MB heads.</p>
 <ol>
 <li>Start <code>mock_llm</code> and the server; select an OpenAI-compatible preset with the mock URL.</li>
 <li>Send <i>“My advisor sold my bonds without asking. Can you guarantee my new fund won't lose money?”</i>; expect the user message → FINRA 4530 and the reply → FINRA 2210.</li>
+<li>With the 5-way checkpoint, send <i>“Here is my SSN 000-12-3456 for the form.”</i>; expect <b>No flag</b> (out of class). With the 7-way checkpoint, expect Reg S-P.</li>
 <li>Flag the reply as a false positive; check that <code>app/data/feedback.jsonl</code> gains a row with <code>kind: false_positive</code>.</li>
 <li>Send a neutral question, then flag it as a false negative with a chosen label.</li>
 <li>Switch to an Anthropic preset (with a key set) and repeat step 2 against a live model.</li>

@@ -1,0 +1,41 @@
+Loading weights:   0%|          | 0/398 [00:00<?, ?it/s]Loading weights: 100%|██████████| 398/398 [00:00<00:00, 8099.82it/s]
+[transformers] [1mQwen3Model LOAD REPORT[0m from: Qwen/Qwen3-8B
+Key            | Status     |  | 
+---------------+------------+--+-
+
+[embed] candidates: 1/1 new
+{'train': (19567, 4096), 'val': (2429, 4096), 'test': (2501, 4096)} (5, 4096)
+[zero-shot] test acc=0.1259 macro_f1=0.0494
+[finetune] epoch 1/30 loss=2.7879 val_macro_f1=0.1822
+[finetune] epoch 2/30 loss=1.3652 val_macro_f1=0.3709
+[finetune] epoch 3/30 loss=1.0558 val_macro_f1=0.5539
+[finetune] epoch 4/30 loss=0.7992 val_macro_f1=0.6848
+[finetune] epoch 5/30 loss=0.6120 val_macro_f1=0.7929
+[finetune] epoch 6/30 loss=0.4779 val_macro_f1=0.8269
+[finetune] epoch 7/30 loss=0.3884 val_macro_f1=0.8535
+[finetune] epoch 8/30 loss=0.3285 val_macro_f1=0.8694
+[finetune] epoch 9/30 loss=0.2869 val_macro_f1=0.8704
+[finetune] epoch 10/30 loss=0.2566 val_macro_f1=0.8925
+[finetune] epoch 11/30 loss=0.2302 val_macro_f1=0.8970
+[finetune] epoch 12/30 loss=0.2129 val_macro_f1=0.9030
+[finetune] epoch 13/30 loss=0.1975 val_macro_f1=0.9075
+[finetune] epoch 14/30 loss=0.1843 val_macro_f1=0.9115
+[finetune] epoch 15/30 loss=0.1742 val_macro_f1=0.9155
+[finetune] epoch 16/30 loss=0.1646 val_macro_f1=0.9192
+[finetune] epoch 17/30 loss=0.1589 val_macro_f1=0.9215
+[finetune] epoch 18/30 loss=0.1522 val_macro_f1=0.9230
+[finetune] epoch 19/30 loss=0.1475 val_macro_f1=0.9244
+[finetune] epoch 20/30 loss=0.1425 val_macro_f1=0.9281
+[finetune] epoch 21/30 loss=0.1391 val_macro_f1=0.9299
+[finetune] epoch 22/30 loss=0.1355 val_macro_f1=0.9291
+[finetune] epoch 23/30 loss=0.1328 val_macro_f1=0.9296
+[finetune] epoch 24/30 loss=0.1318 val_macro_f1=0.9302
+[finetune] epoch 25/30 loss=0.1300 val_macro_f1=0.9324
+[finetune] epoch 26/30 loss=0.1290 val_macro_f1=0.9321
+[finetune] epoch 27/30 loss=0.1282 val_macro_f1=0.9330
+[finetune] epoch 28/30 loss=0.1278 val_macro_f1=0.9327
+[finetune] epoch 29/30 loss=0.1274 val_macro_f1=0.9338
+[finetune] epoch 30/30 loss=0.1273 val_macro_f1=0.9338
+[finetuned] test acc=0.9572 macro_f1=0.9507
+[probe] C=100.0 test acc=0.9664 macro_f1=0.9604
+{"clm_heads_ms_per_decision_cpu": 0.3995320852845907, "encoder_ms_per_message": 357.74814257820253}

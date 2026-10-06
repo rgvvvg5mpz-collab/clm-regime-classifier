@@ -2,7 +2,8 @@
 
     python evaluate.py --data ood/ood_hard_v1.jsonl --out ../Tests/2026-10-05_ood_fable
 
-Rows need ``text`` and ``label``; an optional ``unit`` (client_message / assistant_response)
+Rows need ``text`` and ``label`` (labels outside the active label set, e.g. reg_sp under
+REGIME_LABEL_SET=5way, are mapped to the negative class: they are out-of-class samples); an optional ``unit`` (client_message / assistant_response)
 enables the unit-masked variant. Optional ``ood_axis`` / ``difficulty`` fields are used
 for sliced metrics. Compares: fine-tuned CLM (with and without unit masking), zero-shot
 CLM, and a linear probe refit on the cached train embeddings.
@@ -19,14 +20,14 @@ import torch
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score
 
-from classes import CLASSES, INSTRUCTIONS, LABELS
+from classes import CKPT_NAME, CLASSES, DATA_DIR, INSTRUCTIONS, LABEL_SET, LABELS, to_label_set
 from clm.schema import state_text
 from inference import UNIT_CLASSES
 from mps_embedder import MPSEmbedder, embed_cached
 from run_experiment import REF_CKPT, clm_predict, load_heads, metrics
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-FT_CKPT = os.path.join(HERE, "checkpoints", "clm_regime_7way.pt")
+FT_CKPT = os.path.join(HERE, "checkpoints", CKPT_NAME)
 PROBE_C = 100.0
 
 
@@ -41,7 +42,7 @@ def mask_units(p: np.ndarray, units: list[str | None]) -> np.ndarray:
     p = p.copy()
     for i, u in enumerate(units):
         if u in UNIT_CLASSES:
-            keep = np.isin(LABELS, UNIT_CLASSES[u])
+            keep = np.isin(LABELS, [LABELS[0], *UNIT_CLASSES[u]])   # negative class applies to both speakers
             p[i, ~keep] = 0
             p[i] /= p[i].sum()
     return p
@@ -79,6 +80,8 @@ def main():
     dev = "mps" if torch.backends.mps.is_available() else "cpu"
 
     rows = [json.loads(l) for l in open(a.data)]
+    for r in rows:
+        r["source_label"], r["label"] = r["label"], to_label_set(r["label"])
     y = np.array([LABELS.index(r["label"]) for r in rows])
     units = [r.get("unit") for r in rows]
     X = embed([state_text(r["text"], INSTRUCTIONS) for r in rows], os.path.basename(a.data))
@@ -91,13 +94,14 @@ def main():
     sh, ah, ls, _ = load_heads(REF_CKPT, dev)
     probs["clm_zero_shot"] = clm_predict(sh, ah, ls, X, C, dev)
 
-    train = [json.loads(l) for l in open(os.path.join(HERE, "data", "train.jsonl"))]
+    train = [json.loads(l) for l in open(os.path.join(HERE, DATA_DIR, "train.jsonl"))]
     Xtr = embed([state_text(r["text"], INSTRUCTIONS) for r in train], "state_train")
     ytr = np.array([LABELS.index(r["label"]) for r in train])
     probe = LogisticRegression(C=PROBE_C, max_iter=3000).fit(Xtr, ytr)
     probs["linear_probe"] = probe.predict_proba(X)
 
-    out = {"data": os.path.relpath(a.data, HERE), "n": len(rows), "labels": LABELS,
+    out = {"data": os.path.relpath(a.data, HERE), "n": len(rows), "labels": LABELS, "label_set": LABEL_SET,
+           "source_label_counts": dict(collections.Counter(r["source_label"] for r in rows)),
            "label_counts": dict(collections.Counter(r["label"] for r in rows))}
     for name, p in probs.items():
         pred = p.argmax(1)
@@ -106,6 +110,7 @@ def main():
         m["by_ood_axis"] = sliced(rows, y, pred, "ood_axis")
         m["by_difficulty"] = sliced(rows, y, pred, "difficulty")
         m["by_unit"] = sliced(rows, y, pred, "unit")
+        m["by_source_label"] = sliced(rows, y, pred, "source_label")
         out[name] = m
         print(f"{name:28s} acc={m['accuracy']:.4f} macro_f1={m['macro_f1']:.4f} "
               f"95% CI [{m['macro_f1_95ci'][0]:.3f}, {m['macro_f1_95ci'][1]:.3f}]", flush=True)

@@ -22,18 +22,18 @@ import torch.nn.functional as F
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, f1_score
 
-from classes import CLASSES, INSTRUCTIONS, LABELS
+from classes import CKPT_NAME, CLASSES, DATA_DIR, INSTRUCTIONS, LABEL_SET, LABELS
 from clm.heads import HeadPair, make_head
 from clm.schema import state_text
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REF_CKPT = os.path.expanduser("~/.cache/clm/CLM_v0.1-8B.pt")
-OUT_CKPT = os.path.join(HERE, "checkpoints", "clm_regime_7way.pt")
+OUT_CKPT = os.path.join(HERE, "checkpoints", CKPT_NAME)
 RESULTS = os.path.join(HERE, "results")
 
 
 def load_split(split: str) -> list[dict]:
-    return [json.loads(l) for l in open(os.path.join(HERE, "data", f"{split}.jsonl"))]
+    return [json.loads(l) for l in open(os.path.join(HERE, DATA_DIR, f"{split}.jsonl"))]
 
 
 def embeddings(splits: dict[str, list[dict]]) -> tuple[dict[str, np.ndarray], np.ndarray]:
@@ -149,7 +149,7 @@ def main():
     ap.add_argument("--out", default=RESULTS, help="results directory (e.g. ../Tests/<date>_in_distribution)")
     a = ap.parse_args()
     RESULTS = a.out
-    OUT_CKPT = os.path.join(RESULTS, "clm_regime_7way.pt")
+    OUT_CKPT = os.path.join(RESULTS, CKPT_NAME)
     os.makedirs(RESULTS, exist_ok=True)
     device = "mps" if torch.backends.mps.is_available() else "cpu"
 
@@ -158,7 +158,7 @@ def main():
     X, C = embeddings(splits)
     print({s: v.shape for s, v in X.items()}, C.shape, flush=True)
 
-    out: dict = {"labels": LABELS, "n": {s: len(v) for s, v in y.items()}}
+    out: dict = {"labels": LABELS, "label_set": LABEL_SET, "n": {s: len(v) for s, v in y.items()}}
 
     # 1. zero-shot
     sh, ah, ls, _ = load_heads(REF_CKPT, device)

@@ -1,0 +1,11 @@
+<div class="note"><b>What this run is.</b> Same recipe as the 7-way model, with Reg S-P and Reg S-ID removed from the label
+space. Their messages (2,082 + 2,040 training rows) were not discarded: they were relabelled <b>no flag</b>, so the
+negative class now contains out-of-class samples and the model has to learn that privacy and identity-theft content is
+<i>not</i> one of the four covered regimes. <code>no_flag</code> is 43.6% of training rows; no reweighting was used.</div>
+<ul>
+<li>Test macro-F1 <b>0.983</b> [0.977, 0.989] vs 0.977 for the 7-way model: a small gain, but not a like-for-like one. The 7-way
+model's own predictions collapsed to the same five classes (S-P/S-ID → no flag) score 0.985, so dropping the two hardest classes
+is what moved the number, not the retraining.</li>
+<li>Out-of-class rows (S-P/S-ID source) in the test split are 99.0% correctly “no flag”.</li>
+<li>Remaining in-distribution errors are the familiar Reg BI → FINRA 2210 (7) and a handful of 17a-3/4 ↔ no-flag swaps.</li>
+</ul>

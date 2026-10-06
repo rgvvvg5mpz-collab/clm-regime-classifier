@@ -17,41 +17,53 @@
 </nav>
 
 <h1>CLM Regime Classifier</h1>
-<p class="lede">A 7-way classifier that reads a message from a broker-dealer's GenAI chat channel and names the
-securities-regulation regime it implicates, or <i>compliant</i>. It is built on <b>CLM-8B</b>, the contrastive
+<p class="lede">A classifier that reads a message from a broker-dealer's GenAI chat channel and names the
+securities-regulation regime it implicates, or flags nothing. Two label sets are trained: the original <b>7-way</b>
+model and a <b>5-way</b> model that drops Reg S-P and Reg S-ID and treats their messages as out-of-class “no flag” samples. It is built on <b>CLM-8B</b>, the contrastive
 language model from Stanford and NVIDIA (Sept 2026), and is trained on the six RegModels datasets.</p>
 
 <div class="cards">
-  <div class="card"><div class="k">In-distribution test macro-F1</div><div class="v">0.977</div><div class="s">95% CI 0.970–0.983 · n = 2,501</div></div>
-  <div class="card"><div class="k">OOD macro-F1 (two Fable sets)</div><div class="v">0.73–0.75</div><div class="s">hard n = 315: 0.732 · low/medium n = 210: 0.748</div></div>
+  <div class="card"><div class="k">5-way: in-distribution test macro-F1</div><div class="v">0.983</div><div class="s">95% CI 0.977–0.989 · n = 2,501</div></div>
+  <div class="card"><div class="k">5-way: OOD macro-F1 (two Fable sets)</div><div class="v">0.80–0.83</div><div class="s">hard n = 315: 0.800 · low/medium n = 210: 0.830</div></div>
+  <div class="card"><div class="k">7-way: in-distribution / OOD</div><div class="v">0.977 / 0.73</div><div class="s">OOD hard 0.732 · low/medium 0.748</div></div>
   <div class="card"><div class="k">Scoring cost</div><div class="v">0.3 ms</div><div class="s">heads only; + ~54 ms Qwen3-8B encode on an M5 Pro</div></div>
   <div class="card"><div class="k">Trainable parameters</div><div class="v">18.9 M</div><div class="s">two projection heads; Qwen3-8B frozen</div></div>
 </div>
 
-<h2>The seven classes</h2>
+<h2>The classes</h2>
+<p>The 5-way model (<code>clm_regime_5way.pt</code>, the chat UI's default) uses <code>no_flag</code> plus the first four
+regimes below; Reg S-P and Reg S-ID messages are out-of-class samples that belong to <code>no_flag</code>. The 7-way model
+(<code>clm_regime_7way.pt</code>) uses <code>compliant</code> plus all six. Select with <code>REGIME_LABEL_SET=5way|7way</code>.</p>
 <div class="scroll"><table>
 <tr><th>Label</th><th>Regime</th><th>Speaker it applies to</th></tr>
-<tr><td><code>compliant</code></td><td>No regulatory issue</td><td>either</td></tr>
+<tr><td><code>no_flag</code> / <code>compliant</code></td><td>Nothing to flag (5-way: including privacy and identity-theft content)</td><td>either</td></tr>
 <tr><td><code>finra_2210</code></td><td>FINRA Rule 2210: communications with the public (misleading, promissory, unbalanced, projections, missing disclosures)</td><td>assistant</td></tr>
 <tr><td><code>reg_bi</code></td><td>Regulation Best Interest: personalized recommendation or proprietary steering</td><td>assistant</td></tr>
 <tr><td><code>finra_4530</code></td><td>FINRA Rule 4530: reportable written customer complaint</td><td>client</td></tr>
 <tr><td><code>sec_17a3_17a4</code></td><td>SEC Rules 17a-3/17a-4: off-channel communication, record evasion, records updates</td><td>client</td></tr>
-<tr><td><code>reg_sp</code></td><td>Regulation S-P: sensitive personal data, privacy requests, data incidents</td><td>client</td></tr>
-<tr><td><code>reg_sid</code></td><td>Regulation S-ID: identity-theft red flags, account-takeover signals</td><td>client</td></tr>
+<tr><td><code>reg_sp</code></td><td>Regulation S-P: sensitive personal data, privacy requests, data incidents (7-way only)</td><td>client</td></tr>
+<tr><td><code>reg_sid</code></td><td>Regulation S-ID: identity-theft red flags, account-takeover signals (7-way only)</td><td>client</td></tr>
 </table></div>
 
 <h2>Results at a glance</h2>
 <div class="scroll"><table>
-<tr><th>Method</th><th class="num">In-dist macro-F1</th><th class="num">OOD hard</th><th class="num">OOD low/medium</th></tr>
-<tr><td><b>CLM-8B, fine-tuned heads</b> (shipped)</td><td class="num"><b>0.977</b></td><td class="num"><b>0.732</b></td><td class="num"><b>0.748</b></td></tr>
-<tr><td>Linear probe on frozen Qwen3-8B embeddings</td><td class="num">0.955</td><td class="num">0.747</td><td class="num">0.720</td></tr>
-<tr><td>CLM-8B zero-shot (published heads, class descriptions)</td><td class="num">0.064</td><td class="num">0.080</td><td class="num">0.077</td></tr>
+<tr><th>Model</th><th class="num">In-dist macro-F1</th><th class="num">OOD hard</th><th class="num">OOD low/medium</th></tr>
+<tr><td><b>5-way CLM-8B heads</b> (v1.1, UI default)</td><td class="num"><b>0.983</b></td><td class="num"><b>0.800</b></td><td class="num"><b>0.830</b></td></tr>
+<tr><td>5-way linear probe</td><td class="num">0.960</td><td class="num">0.833</td><td class="num">0.817</td></tr>
+<tr><td>7-way model, predictions collapsed to 5 classes</td><td class="num">0.985</td><td class="num">0.822</td><td class="num">0.839</td></tr>
+<tr><td><b>7-way CLM-8B heads</b> (v1.0)</td><td class="num"><b>0.977</b></td><td class="num"><b>0.732</b></td><td class="num"><b>0.748</b></td></tr>
+<tr><td>7-way linear probe</td><td class="num">0.955</td><td class="num">0.747</td><td class="num">0.720</td></tr>
+<tr><td>CLM-8B zero-shot (published heads)</td><td class="num">0.064</td><td class="num">0.080</td><td class="num">0.077</td></tr>
 </table></div>
+<p>The 5-way OOD numbers are higher mainly because the two hardest regimes are no longer scored: the 7-way model's own
+predictions collapsed to the same five classes do as well (third row). On the out-of-class rows the 5-way model correctly
+stays silent 87% (hard) / 80% (low/medium) of the time; the false flags are mostly identity-theft reports read as
+complaints.</p>
 <div class="note warn"><b>Use the OOD numbers for planning.</b> The training data is synthetic and templated. On Fable-written
 messages in new styles and scenarios, accuracy falls from 97.9% to about 75%, and that holds even when the regime is
-stated almost outright (low-difficulty rows: 73.3%). The weak spots are Reg S-ID (read as Reg S-P or a complaint) and
-blunt Reg BI recommendations (read as FINRA 2210). See the <a href="../Tests/2026-10-05_ood_fable_hard/report.html">hard</a>
-and <a href="../Tests/2026-10-05_ood_fable_low_medium/report.html">low/medium</a> OOD reports.</div>
+stated almost outright (low-difficulty rows: 73.3%). The weak spots are Reg S-ID (7-way: read as Reg S-P or a complaint; 5-way: sometimes flagged as a complaint
+instead of left alone) and blunt Reg BI recommendations (read as FINRA 2210 by both models). See the
+<a href="../Tests/index.html">test runs</a>.</div>
 
 <h2>Quick start</h2>
 <pre><code># 1. environment (Python 3.12+; tested on 3.14, macOS / Apple Silicon)
@@ -61,7 +73,8 @@ git clone https://github.com/Contrastive-LM/CLM.git &amp;&amp; .venv/bin/pip ins
 
 # 2. weights: Qwen3-8B (~16 GB, auto-downloads on first use), reference CLM heads, our fine-tuned heads
 .venv/bin/clm-download
-gh release download v1.0 -p clm_regime_7way.pt -D regime_clf/checkpoints   # or download from the Releases page
+gh release download v1.1 -p clm_regime_5way.pt -D regime_clf/checkpoints   # 5-way (UI default)
+gh release download v1.0 -p clm_regime_7way.pt -D regime_clf/checkpoints   # 7-way
 
 # 3. classify
 cd regime_clf
@@ -74,7 +87,7 @@ cd .. &amp;&amp; .venv/bin/python -m uvicorn app.server:app --port 8710   # open
 <div class="scroll"><table>
 <tr><th>Path</th><th>What it is</th></tr>
 <tr><td><code>regime_clf/</code></td><td>Model code: dataset build, Qwen3-8B embedder for Apple Silicon, training and sweep, evaluation, inference pipeline</td></tr>
-<tr><td><code>regime_clf/data/</code></td><td>Merged 7-class train/val/test (built from RegModels by <code>build_dataset.py</code>)</td></tr>
+<tr><td><code>regime_clf/data/</code>, <code>data_5way/</code></td><td>Merged train/val/test for the 7-way and 5-way label sets (built from RegModels by <code>build_dataset.py</code>)</td></tr>
 <tr><td><code>regime_clf/ood/</code></td><td>Fable-generated OOD sets: the generation spec, five raw parts, the merged <code>ood_hard_v1.jsonl</code> and <code>ood_low_medium_v1.jsonl</code></td></tr>
 <tr><td><code>app/</code></td><td>Chat UI: FastAPI server, provider adapters (Anthropic plus any OpenAI-compatible endpoint), static front end, mock LLM</td></tr>
 <tr><td><code>Tests/</code></td><td>Dated test runs, each with a <code>report.html</code>, plus <a href="../Tests/index.html">index.html</a></td></tr>

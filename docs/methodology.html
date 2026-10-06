@@ -22,8 +22,11 @@ numbers do and don't support.</p>
 
 <h2>1. Task definition</h2>
 <p>Each input is one message from a broker-dealer's GenAI chat channel, written by either the client or the
-assistant. The output is a single label from seven classes: the regulation regime the message implicates, or
-<code>compliant</code>. This replaces RegModels' six per-regime binary/multi-label models with one router. It answers
+assistant. The output is a single label: the regulation regime the message implicates, or the negative class. Two
+label sets are trained (<code>regime_clf/classes.py</code>, selected with <code>REGIME_LABEL_SET</code>): <b>7-way</b>
+(<code>compliant</code> + six regimes) and <b>5-way</b> (<code>no_flag</code> + FINRA 2210, Reg BI, FINRA 4530, SEC 17a-3/4).
+In the 5-way set, Reg S-P and Reg S-ID messages are kept as <i>out-of-class samples</i> labelled <code>no_flag</code>, so the
+negative class means “nothing among the covered regimes” rather than “nothing at all”. This replaces RegModels' six per-regime binary/multi-label models with one router. It answers
 <i>which</i> regime applies, not which sub-rule; that finer call stays with the existing per-track models and human
 review.</p>
 <p>The speaker matters. FINRA 2210 and Reg BI judge what the <b>assistant</b> says; FINRA 4530, SEC 17a-3/4,
@@ -37,7 +40,8 @@ test 2,501). Every row is synthetic: slot-filled templates plus some LLM augment
 <h3>Label mapping (<code>regime_clf/build_dataset.py</code>)</h3>
 <ul>
 <li>A row with any violation or complaint label → its track's class (e.g. any <code>d1*</code>/<code>d2</code>/… label in the 2210 track → <code>finra_2210</code>).</li>
-<li>A row with no labels (each track's negative class: <code>compliant</code>, <code>education_compliant</code>, <code>not_complaint</code>, <code>not_flagged</code>) → <code>compliant</code>.</li>
+<li>A row with no labels (each track's negative class: <code>compliant</code>, <code>education_compliant</code>, <code>not_complaint</code>, <code>not_flagged</code>) → the negative class.</li>
+<li>5-way only: every row of the <code>regsp</code> and <code>regsid</code> tracks (violation or not) → <code>no_flag</code>; 8,524 negative training rows (43.6%) versus 4,402 (22.5%) in the 7-way set. No reweighting.</li>
 <li>Multi-label rows (2–3% per track) all fall inside one track, so the regime label is never ambiguous.</li>
 <li>The original splits are kept, so nothing that was held out in RegModels leaks into training here.</li>
 <li>Checked: 0 exact duplicate texts across tracks or splits, and 0 texts with conflicting classes.</li>
@@ -69,7 +73,7 @@ consistent with bf16-on-MPS vs vLLM numerics.</div>
 <li>Encoder frozen. All encoder embeddings are computed once and cached (text-keyed float16 store, <code>emb_cache/</code>).</li>
 <li>Both heads and <code>logit_scale</code> are initialised from the published <code>CLM_v0.1-8B.pt</code> and trained with softmax cross-entropy over the 7 candidates. This is the repo's <code>choice --loss softce</code> objective, reimplemented in <code>run_experiment.py</code> so it can train from the cached MPS embeddings.</li>
 <li>AdamW (weight decay 0.01), one-cycle LR, batch 256, 30 epochs. The checkpoint kept is the epoch with the best validation macro-F1.</li>
-<li>Learning-rate sweep {1e-4, 3e-4, 1e-3}, selected on validation only. 1e-3 won (val 0.9769, epoch 28). The first 15-epoch run at 1e-4 was undertrained (test 0.877).</li>
+<li>Learning-rate sweep {1e-4, 3e-4, 1e-3}, selected on validation only. 7-way: 1e-3 won (val 0.9769, epoch 28); the first 15-epoch run at 1e-4 was undertrained (test 0.877). 5-way: same sweep, 1e-3 won again (val 0.984, epoch 28). The state question is identical for both sets, so the cached encoder embeddings are shared; only the candidate texts differ.</li>
 <li>Seed 20933. On one M5 Pro, embedding takes ~18 min (24.5k texts), and training takes ~2 min per configuration.</li>
 </ul>
 
@@ -89,6 +93,7 @@ consistent with bf16-on-MPS vs vLLM numerics.</div>
   Every row carries a one-sentence rationale that names the nearest competing class. The generation spec is <code>regime_clf/ood/SPEC.md</code>.</li>
 <li><b>Out-of-distribution low/medium set</b>: 210 further messages from two more Fable agents, one per difficulty (105 each, 15 per class, spread evenly over the same three axes). <i>Low</i> means the regime is stated almost outright with no competing regime; <i>medium</i> means the signal is clear but implicit (a grievance without the word “complaint”, PII given in passing). Definitions are in <code>SPEC.md</code>. The purpose is to separate <i>distribution shift</i> from <i>inferential difficulty</i>.</li>
 <li><b>OOD integrity checks</b> (<code>ood/build_ood.py</code>): schema, label/speaker consistency, no real firm names, no exact matches with any split, and near-duplicates against train via character 3–5-gram TF-IDF cosine (threshold 0.80). Result: 0 rows dropped from either set; median nearest-train similarity 0.30 (hard) and 0.28 (low/medium); no overlap between the two OOD sets.</li>
+<li><b>Evaluating the 5-way model on the OOD sets</b>: labels outside its set (<code>reg_sp</code>, <code>reg_sid</code>) are mapped to <code>no_flag</code>, so those rows test whether the model stays silent on out-of-class content; <code>evaluate.py</code> also reports accuracy by source label. For a like-for-like comparison the 7-way model's predictions are collapsed the same way.</li>
 <li><b>Speaker masking</b>: optionally restricts the softmax to the classes valid for the speaker. In-distribution it changes nothing, because the model already never crosses speakers. On OOD it adds +0.004 macro-F1.</li>
 <li><b>Uncertainty</b>: 95% percentile bootstrap (1,000 resamples) for accuracy and macro-F1.</li>
 </ul>
@@ -100,6 +105,7 @@ consistent with bf16-on-MPS vs vLLM numerics.</div>
 <li><b>Error structure on OOD</b>: Reg S-ID → Reg S-P (19/45 S-ID rows); Reg BI → FINRA 2210 (14/45); violations predicted compliant (22/270, mostly S-P, 17a-3/4 and BI). FINRA 4530 holds up best (F1 0.91).</li>
 <li><b>Part of the S-ID/S-P gap is a labelling convention</b>. One Fable agent noted that the training data labels some identity-verification situations (e.g. an elderly parent handing a verification code to a caller) as Reg S-P, whereas the OOD set treats verification bypass and takeover as Reg S-ID. A compliance SME needs to settle that boundary before anyone retrains.</li>
 <li><b>Difficulty is not what drives the OOD drop.</b> On the low/medium set the fine-tuned heads score 0.748 [0.688, 0.801]: low rows 73.3%, medium 80.0%, versus hard 76.9% and very hard 68.0%. Rows that state the regime outright are no easier for the model than rows that require inference. The same two confusions dominate, at high confidence: Reg S-ID → S-P or 4530 (23 of 30 S-ID rows wrong), and short direct Reg BI recommendations → FINRA 2210 (7 of 30; e.g. “Buy the Copperleaf Dividend Fund. For your situation, it's the right call.” at p = 0.99). Training Reg BI rows are long and hedged, so the model learned the template style rather than the concept. The probe shows the same pattern (low 69.5%, medium 78.1%).</li>
+<li><b>5-way retraining: better numbers, same model.</b> The 5-way heads score 0.983 in-distribution, 0.800 OOD hard and 0.830 OOD low/medium. But the 7-way model collapsed to the same five classes scores 0.985 / 0.822 / 0.839, so the OOD improvement is from no longer scoring Reg S-P and Reg S-ID (the two weakest classes), not from the new training. The Reg BI → FINRA 2210 confusion is unchanged (16/45 hard, 9/30 low/medium). Out-of-class handling is decent but not clean: of the S-P/S-ID rows, 87% (hard) and 80% (low/medium) are correctly left unflagged; the false flags are identity-theft reports read as FINRA 4530 complaints or 17a-3/4 records events. The linear probe is again as good as or better than the heads on OOD (0.833 vs 0.800 on hard).</li>
 <li><b>Zero-shot doesn't work</b> for this taxonomy (macro-F1 ≤ 0.24 across all variants).</li>
 <li><b>Embedding geometry</b>: because every state ends with the same instruction, raw last-token embeddings of different messages sit at cosine ≈ 0.997. They can't be used for similarity or deduplication without the heads.</li>
 </ol>
@@ -109,13 +115,14 @@ consistent with bf16-on-MPS vs vLLM numerics.</div>
 <li>Both train and test data are synthetic. The OOD sets are also synthetic, from a different generator, so they measure robustness to <i>style and scenario shift</i>, not to real client traffic.</li>
 <li>OOD labels are Fable's, and only spot-checked, not SME-adjudicated. Some disagreement with the training labels reflects convention rather than model error (finding 4).</li>
 <li>Single label per message. Real messages can implicate two regimes; the OOD set deliberately excluded genuinely co-equal cases.</li>
+<li>In the 5-way set, treating identity theft and privacy content as “no flag” is a modelling convenience for a model that doesn't cover those rules; in deployment those messages still need a route (the 7-way model, or a separate detector).</li>
 <li>One seed, one hardware platform. Reported latency is for an Apple M5 Pro; CUDA + vLLM will differ.</li>
 <li>The probe's C is at the edge of its grid, so the baseline may be slightly underestimated.</li>
 </ul>
 
 <h2>9. Reproducing</h2>
 <pre><code>cd regime_clf
-../.venv/bin/python build_dataset.py                          # data/
+../.venv/bin/python build_dataset.py                          # data/   (REGIME_LABEL_SET=5way -> data_5way/)
 ../.venv/bin/python run_experiment.py --epochs 30 --lr 1e-3 --out ../Tests/&lt;date&gt;_in_distribution/sweep/lr_1e-3
 ./sweep.sh ../Tests/&lt;date&gt;_in_distribution/sweep               # full LR sweep
 ../.venv/bin/python evaluate.py --data data/test.jsonl --out ../Tests/&lt;date&gt;_in_distribution/eval_test
@@ -124,5 +131,8 @@ consistent with bf16-on-MPS vs vLLM numerics.</div>
 ../.venv/bin/python ood/build_ood.py --parts raw_low.jsonl raw_medium.jsonl --out ood_low_medium_v1.jsonl
 ../.venv/bin/python evaluate.py --data ood/ood_low_medium_v1.jsonl --out ../Tests/&lt;date&gt;_ood_fable_low_medium
 ../.venv/bin/python zero_shot_variants.py ../Tests/&lt;date&gt;_in_distribution/zero_shot_variants.json
+# 5-way variant: prefix every command with REGIME_LABEL_SET=5way, e.g.
+REGIME_LABEL_SET=5way ./sweep.sh ../Tests/&lt;date&gt;_5way_in_distribution/sweep
+REGIME_LABEL_SET=5way ../.venv/bin/python evaluate.py --data ood/ood_hard_v1.jsonl --out ../Tests/&lt;date&gt;_5way_ood_fable_hard
 cd .. &amp;&amp; .venv/bin/python Tests/make_reports.py</code></pre>
 </div></body></html>

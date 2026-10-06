@@ -38,7 +38,10 @@ screening:
   on_flagged_response: warn
 
 classifier:
-  checkpoint: regime_clf/checkpoints/clm_regime_7way.pt
+  # Which model screens the chat. Both are release assets; the UI adapts its labels to the file.
+  #   clm_regime_5way.pt  no_flag + FINRA 2210, Reg BI, FINRA 4530, SEC 17a-3/4 (Reg S-P / S-ID -> no flag)
+  #   clm_regime_7way.pt  compliant + the four above + Reg S-P + Reg S-ID
+  checkpoint: regime_clf/checkpoints/clm_regime_5way.pt
   # Leave empty to run Qwen3-8B in-process (Apple Silicon / CPU / CUDA); or point at a
   # vLLM pooling server: vllm serve Qwen/Qwen3-8B --runner pooling --port 8090
   emb_url: ""

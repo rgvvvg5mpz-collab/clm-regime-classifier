@@ -1,0 +1,11 @@
+<div class="note warn"><b>Read this first.</b> Macro-F1 <b>0.830</b> [0.770, 0.882], up from 0.748 for the 7-way model on the same
+210 rows. As on the hard set, the 7-way model collapsed to five classes scores about the same (0.839): the gain is from
+removing Reg S-P and Reg S-ID from the scored classes, not from retraining. The low-difficulty rows are again no easier
+than the medium ones (80.0% vs 87.6%).</div>
+<ul>
+<li><b>Out-of-class handling.</b> Of the 60 S-P / S-ID rows (gold “no flag”), 48 are correct and 12 are false flags
+(9 → FINRA 4530, 3 → SEC 17a-3/4). S-P 90% correct, S-ID 70%.</li>
+<li><b>Reg BI → FINRA 2210</b>: 9 of 30 (F1 0.80). Blunt recommendations are still read as promissory language.</li>
+<li>Violations predicted no-flag: 10 of 120 in-class violations.</li>
+<li>The probe (0.817) and the heads (0.830) are within noise of each other.</li>
+</ul>
