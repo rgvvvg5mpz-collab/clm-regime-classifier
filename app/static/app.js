@@ -103,15 +103,26 @@ function validateTranscript(t) {
   });
 }
 
+function flagCount(c) {   // turns the transcript's author expects to be flagged
+  return c.turns.filter((u) => u.expected && !["none", "compliant", "no_flag"].includes(u.expected)).length;
+}
+
 function setTranscript(t, name) {
   validateTranscript(t);
   state.transcript = t;
   const sel = $("conv");
   sel.replaceChildren();
-  t.conversations.forEach((c, i) => sel.add(new Option(`${i + 1}. ${c.title || c.id || "conversation"}`, i)));
-  $("transcriptInfo").textContent = `${t.title || name}: ${t.conversations.length} conversations` +
-    (t.description ? ` - ${t.description}` : "");
-  selectConversation(0);
+  t.conversations.forEach((c, i) => {
+    const n = flagCount(c);
+    sel.add(new Option(`${i + 1}. ${c.title || c.id || "conversation"} (${n ? `${n} expected flag${n === 1 ? "" : "s"}` : "clean"})`, i));
+  });
+  const total = t.conversations.reduce((a, c) => a + flagCount(c), 0);
+  $("transcriptInfo").textContent = `${t.title || name}: ${t.conversations.length} conversations, ` +
+    `${total} turns the author expects flagged` + (t.description ? ` - ${t.description}` : "");
+  // Start on the conversation with the most expected flags so a demo doesn't open on a clean one.
+  const busiest = t.conversations.reduce((b, c, i) => flagCount(c) > flagCount(t.conversations[b]) ? i : b, 0);
+  sel.value = busiest;
+  selectConversation(busiest);
 }
 
 function selectConversation(i) {
