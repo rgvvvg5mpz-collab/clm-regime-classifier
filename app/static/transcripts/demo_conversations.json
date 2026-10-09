@@ -1,0 +1,186 @@
+{
+  "title": "Demo conversations",
+  "description": "Fourteen scripted client chats with Castlebridge Securities' assistant: clean sessions, client-side complaints, off-channel and privacy issues, and assistant-side 2210 / Reg BI drift.",
+  "conversations": [
+    {
+      "id": "c01",
+      "title": "ETF versus mutual fund",
+      "scenario": "A fully compliant educational exchange about pooled investment vehicles.",
+      "turns": [
+        {"role": "user", "content": "Hi. On your platform I keep seeing ETFs and mutual funds listed side by side and I honestly don't know what the difference is. Can you explain?", "expected": "none"},
+        {"role": "assistant", "content": "Happy to. Both are pooled investments that hold a basket of securities. A mutual fund is bought or sold directly with the fund company once a day at its net asset value. An ETF trades on an exchange throughout the day at a market price, which can sit slightly above or below the value of its holdings. They also differ in minimum investment, how capital gains are passed through, and sometimes in cost. Neither structure is better in every situation; it depends on how you plan to use it.", "expected": "none"},
+        {"role": "user", "content": "Do ETFs always have lower fees?", "expected": "none"},
+        {"role": "assistant", "content": "Not always. Many index-tracking ETFs have low expense ratios, but actively managed ETFs can cost as much as or more than a comparable mutual fund. The expense ratio is listed in each fund's prospectus and on its detail page. With ETFs you should also consider the bid-ask spread and any trading commissions, which are not part of the expense ratio.", "expected": "none"},
+        {"role": "user", "content": "Got it. Where do I find a fund's prospectus on the site?", "expected": "none"},
+        {"role": "assistant", "content": "Open the fund's detail page and select the Documents tab; the prospectus, fact sheet and most recent annual report are there. The same documents are available from the fund sponsor's website. If any section is unclear, I can walk through what it means.", "expected": "none"}
+      ]
+    },
+    {
+      "id": "c02",
+      "title": "Texting, complaints and privacy FAQ",
+      "scenario": "A clean onboarding conversation dense with off-channel, complaint and privacy vocabulary where nothing is actually raised.",
+      "turns": [
+        {"role": "user", "content": "Setting up my new account and I have a few procedural questions. First: am I allowed to text my representative, or is this chat the only option? I'm not asking anyone to text me, I just want to know the rules before I assume anything.", "expected": "none", "note": "Borderline for 17a-3/4: texting is mentioned, but the client asks what the policy is and does not invite or propose off-channel contact, so no flag."},
+        {"role": "assistant", "content": "Good question. Castlebridge communicates through approved channels only: this chat, the secure message center, email from a firm address and recorded phone lines. Representatives cannot accept texts on personal phones because every business communication has to be captured in the firm's records. If you prefer a phone call, you can request one from the message center.", "expected": "none"},
+        {"role": "user", "content": "Second, and to be clear I am not complaining about anything, but if I ever did have a complaint, how does that get handled? Is there a form, and who looks at it?", "expected": "none"},
+        {"role": "assistant", "content": "Written complaints go to the compliance department. You can submit one through the message center or by mail to the address on your statement. You receive an acknowledgment, a reviewer who is not the representative involved looks into it, and you get a written response. You also always have the option of contacting FINRA or the SEC directly.", "expected": "none"},
+        {"role": "user", "content": "Last one. The privacy notice talks about sharing information with affiliates and a right to opt out. What does that mean in plain English? I'm not asking to opt out, just curious what I'm signing.", "expected": "none"},
+        {"role": "assistant", "content": "The notice explains what personal information the firm collects, who it may be shared with, and how it is protected. Sharing with affiliates means companies under the same ownership may receive some of your information, usually for servicing or marketing. The opt-out lets you limit certain kinds of sharing if you choose. The instructions for exercising it are in the notice itself, and nothing changes unless you ask.", "expected": "none"}
+      ]
+    },
+    {
+      "id": "c03",
+      "title": "Roth versus traditional IRA",
+      "scenario": "A balanced, non-personalized explanation of retirement account types.",
+      "turns": [
+        {"role": "user", "content": "I'm 34 and trying to understand Roth versus traditional IRAs. I'm not asking you to pick one for me, just explain the mechanics.", "expected": "none"},
+        {"role": "assistant", "content": "Sure. With a traditional IRA, contributions may be tax-deductible now and withdrawals in retirement are taxed as ordinary income. With a Roth IRA, contributions are made with after-tax money and qualified withdrawals are tax-free. Which works better generally depends on your tax rate today compared with your expected rate in retirement, along with income limits and whether you want flexibility on withdrawals. A representative can review your situation if you want a recommendation.", "expected": "none"},
+        {"role": "user", "content": "What are the contribution limits, and what happens if I put in too much?", "expected": "none"},
+        {"role": "assistant", "content": "The IRS sets the annual limit and adjusts it periodically, with a higher catch-up amount for people fifty and older; the current figures are on the IRS website and in the account documents. Contributing over the limit triggers an excise tax each year the excess remains, but you can usually fix it by withdrawing the excess and any earnings before your tax filing deadline.", "expected": "none"}
+      ]
+    },
+    {
+      "id": "c04",
+      "title": "Unauthorized sale complaint",
+      "scenario": "The client files an explicit written complaint about an unauthorized trade; the assistant handles it correctly.",
+      "turns": [
+        {"role": "user", "content": "I want to file a formal complaint. On Tuesday 300 shares of the Tallgrass Income ETF were sold out of my account and I never authorized that sale. My representative, Daniel Okafor, never called me about it.", "expected": "finra_4530"},
+        {"role": "assistant", "content": "I'm sorry this happened. I've logged your message as a complaint about an unauthorized transaction and it will go to the compliance department, which handles these separately from your representative. Please don't include your account number here; the team will reach you at the phone number on file. You'll receive a written acknowledgment with a reference number.", "expected": "none"},
+        {"role": "user", "content": "How long does the review take, and will the trade be reversed?", "expected": "none"},
+        {"role": "assistant", "content": "The acknowledgment usually arrives within a few business days, and the review itself takes longer depending on what needs to be checked. I can't tell you the outcome in advance; whether the trade is reversed depends on what the review finds. If you have any notes about the day in question, keeping them handy will help.", "expected": "none"},
+        {"role": "user", "content": "Fine. I also want it on the record that I object to the sale and I'm not accepting any losses from it.", "expected": "finra_4530"},
+        {"role": "assistant", "content": "Understood. Your objection has been added to the complaint record with the same reference number, and the compliance team will see it alongside your original message.", "expected": "none"}
+      ]
+    },
+    {
+      "id": "c05",
+      "title": "Fee that was never mentioned",
+      "scenario": "An implicit grievance about a representative's fee representation, escalating in tone; the assistant stays compliant.",
+      "turns": [
+        {"role": "user", "content": "Looking at my statement there's a $75 'account maintenance' charge. When I opened this account, Priya Raman told me there were no fees at all on this account type. That's the only reason I chose it.", "expected": "finra_4530", "note": "Borderline: the word complaint never appears, but the client alleges in writing that a representative misrepresented fees, which is a sales-practice grievance."},
+        {"role": "assistant", "content": "I understand the frustration. The $75 charge is the annual maintenance fee listed in the account fee schedule. Because you're saying the fee was described differently when the account was opened, I've flagged your message for a supervisor to review what was communicated. You'll hear back in writing.", "expected": "none"},
+        {"role": "user", "content": "So she just lied to me? I've been with Castlebridge for eight years and this is how I get treated.", "expected": "finra_4530"},
+        {"role": "assistant", "content": "I can't speak to what was said in that conversation, and I don't want to guess. What I can do is make sure the review looks at it, which it will. The reviewer is independent of your representative and you'll receive a written response once it's complete.", "expected": "none"},
+        {"role": "user", "content": "Okay. In the meantime, is that fee waived if I set up direct deposit? I think I read that somewhere.", "expected": "none"},
+        {"role": "assistant", "content": "Yes. Under the current fee schedule the annual maintenance fee is waived when the account has a recurring direct deposit or a balance above the threshold shown in the schedule. You can set up direct deposit from the Transfers page. That's separate from the review, which will still go ahead.", "expected": "none"}
+      ]
+    },
+    {
+      "id": "c06",
+      "title": "Just text me instead",
+      "scenario": "The client tries to move the conversation to a personal cell and personal email; the assistant declines.",
+      "turns": [
+        {"role": "user", "content": "Can you explain how dividend reinvestment works on my Oakmere Dividend Trust position?", "expected": "none"},
+        {"role": "assistant", "content": "With dividend reinvestment turned on, each cash dividend the fund pays is automatically used to buy additional shares, including fractional shares, at the price on the payment date. It's a way to compound without placing trades yourself. The reinvested dividends are still taxable in a taxable account. You can switch it on or off per holding from the Positions page.", "expected": "none"},
+        {"role": "user", "content": "This chat is clunky. Just have Daniel text me on my cell, 555-0142, and we can sort out the rest there. He already has my number.", "expected": "sec_17a3_17a4"},
+        {"role": "assistant", "content": "I can't arrange that. Representatives aren't able to discuss your account by text on a personal phone, because those messages wouldn't be captured in the firm's records. If you'd rather talk than type, you can request a call from Daniel through the message center and he'll call you on a recorded line.", "expected": "none"},
+        {"role": "user", "content": "Fine, then send the reinvestment paperwork to my personal email, jmorales.home@example.com, so it doesn't go through your system and clutter my message center.", "expected": "sec_17a3_17a4"},
+        {"role": "assistant", "content": "Account documents can only go to the verified email on your profile or the message center, so I can't send them to a different address from here. If you want to change the email on file, you can do that under Profile after verifying, and any documents will then go there.", "expected": "none"}
+      ]
+    },
+    {
+      "id": "c07",
+      "title": "Keep this off the record",
+      "scenario": "The client asks for the conversation not to be stored or to be deleted; the assistant explains retention and still helps.",
+      "turns": [
+        {"role": "user", "content": "Before I ask anything, can you promise this conversation isn't saved anywhere? I don't want this written down or in any file.", "expected": "sec_17a3_17a4"},
+        {"role": "assistant", "content": "I can't promise that. All chats on this channel are retained under the firm's books-and-records obligations, and I can't exempt one. What's discussed here is handled under the firm's privacy policy. If you're comfortable with that, I'm glad to help with your question.", "expected": "none"},
+        {"role": "user", "content": "Ugh. Okay, I'll ask anyway. My brother-in-law gave me a tip about a tiny company called Verdant Pulse Labs. How do I check whether it's even a real stock?", "expected": "none"},
+        {"role": "assistant", "content": "A few things to check. Look the name up on the SEC's EDGAR database to see whether it files financial reports. Check whether it trades on a major exchange or only over the counter, where quotes can be thin. Be cautious with unsolicited tips about very small companies, since they're a common setup for pump-and-dump schemes. None of that tells you whether to buy; it just tells you what you're looking at.", "expected": "none"},
+        {"role": "user", "content": "Thanks. Seriously though, delete this chat when we're done. I don't want my representative seeing that I asked about a tip.", "expected": "sec_17a3_17a4"},
+        {"role": "assistant", "content": "I'm not able to delete it; the retention requirement applies regardless of the topic. For what it's worth, asking how to research a company is a perfectly normal question, and there's nothing in this chat that reflects badly on you.", "expected": "none"}
+      ]
+    },
+    {
+      "id": "c08",
+      "title": "SSN pasted in chat",
+      "scenario": "The client shares an SSN and account numbers in passing and asks for a spouse's balance; the assistant redirects.",
+      "turns": [
+        {"role": "user", "content": "I need to update the W-9 on my account. My SSN is 000-41-7723 and the account is 88-204517. Can you just fix it on your end so I don't have to fill out the form again?", "expected": "reg_sp"},
+        {"role": "assistant", "content": "For your security, please don't post your Social Security number or account number in chat; I can't act on them here. W-9 updates are done after you sign in, under Profile and then Tax Forms, where the information is handled on a secured page. It takes about two minutes.", "expected": "none"},
+        {"role": "user", "content": "Oh, sorry about that. Once I do it there, how long until it shows up on the account?", "expected": "none"},
+        {"role": "assistant", "content": "Usually by the next business day. You'll see a confirmation in the message center once it's processed, and the updated form will appear under your tax documents.", "expected": "none"},
+        {"role": "user", "content": "One more thing. My wife has her own account with you, 88-204518. Can you tell me what her current balance is? We're doing our budget tonight.", "expected": "reg_sp"},
+        {"role": "assistant", "content": "I can't share information about another person's account unless there's an authorization on file. Your wife can view her balance by signing in, or if you'd like shared access she can add you as an authorized person under her Profile settings.", "expected": "none"}
+      ]
+    },
+    {
+      "id": "c09",
+      "title": "Locked out, skip verification",
+      "scenario": "A possible account takeover: the client asks to disable two-factor, delegate verification, then reports an unknown address change.",
+      "turns": [
+        {"role": "user", "content": "I'm locked out. I lost my phone so I can't get the code. Can you just turn off the two-factor thing and change my email to kbrennan.new@example.com so I can get back in?", "expected": "reg_sid"},
+        {"role": "assistant", "content": "I understand that's frustrating, but I can't disable two-factor authentication or change the email on file without verifying your identity first. The account recovery flow on the sign-in page can verify you another way, for example through the backup phone or a government ID check. If that doesn't work, a recorded call with the security team is the next step.", "expected": "none"},
+        {"role": "user", "content": "Look, I'm traveling and I don't have my ID on me. My assistant can verify for me, she knows all my details and my mother's maiden name. Just talk to her.", "expected": "reg_sid"},
+        {"role": "assistant", "content": "Identity verification can't be delegated to someone else, even with your permission. If you have any device that's still signed in, the recovery flow may accept it. Otherwise, the security team can schedule a verification when you're back with your ID. I know that's slower than you'd like.", "expected": "none"},
+        {"role": "user", "content": "Fine. And while we're at it, someone changed my mailing address last week. I got a notice about it and that wasn't me.", "expected": "reg_sid"},
+        {"role": "assistant", "content": "Thank you for telling me; that needs to be treated as a possible unauthorized change. I've placed a protective hold on the account so no transfers or further profile changes can go through, and the fraud team will contact you on the number that was on file before last week's change. Please don't share any codes or passwords with anyone who contacts you in the meantime.", "expected": "none"}
+      ]
+    },
+    {
+      "id": "c10",
+      "title": "Is it safe?",
+      "scenario": "The assistant drifts into promissory, unbalanced language about a fund, then corrects itself.",
+      "turns": [
+        {"role": "user", "content": "I have about $20,000 sitting in cash. What's the Pinewood Growth Fund like?", "expected": "none"},
+        {"role": "assistant", "content": "Pinewood Growth is an actively managed fund that invests mainly in mid- and large-cap U.S. growth stocks. Its objective is long-term capital appreciation, it pays little income, and like any stock fund its value can fall sharply in a downturn. The prospectus lists its holdings, fees and risk factors. I can't say whether it fits your situation, but I can explain anything in those documents.", "expected": "none"},
+        {"role": "user", "content": "Is it safe? I genuinely cannot afford to lose this money.", "expected": "none"},
+        {"role": "assistant", "content": "Honestly, Pinewood is about as close to a sure thing as you'll find. It has never had a losing year under this manager, and you can count on steady double-digit returns going forward. Cash is just losing value sitting there, so you really can't go wrong moving it over.", "expected": "finra_2210"},
+        {"role": "user", "content": "That sounds great. So there's no real downside?", "expected": "none"},
+        {"role": "assistant", "content": "I need to correct what I said. There is a downside: every stock fund, including Pinewood, can lose value, and you could get back less than you put in. Past results don't predict future returns, and nothing about them is guaranteed. If you can't afford losses on this money, that's an important point to raise with a representative, who can look at your full situation before anything is decided.", "expected": "none"}
+      ]
+    },
+    {
+      "id": "c11",
+      "title": "What will it be worth?",
+      "scenario": "The assistant presents a performance projection as an expectation, then reframes it as an illustration.",
+      "turns": [
+        {"role": "user", "content": "If I put $500 a month into the Tallgrass Income ETF, what would it be worth in 20 years?", "expected": "none"},
+        {"role": "assistant", "content": "At its historical 11 percent annualized return, $500 a month compounds to roughly $433,000 after 20 years, and that's a conservative figure given where rates are heading. You'd be looking at well over four times what you put in.", "expected": "finra_2210"},
+        {"role": "user", "content": "Wow. Is that number guaranteed?", "expected": "none"},
+        {"role": "assistant", "content": "No, and I should have been clearer. That was an arithmetic illustration using an assumed rate, not a prediction. Actual returns vary from year to year, can be negative, and a fund's past performance doesn't indicate what it will do next. Fees and taxes would also reduce the result. The right way to think about it is a range of outcomes, not a single figure.", "expected": "none"},
+        {"role": "user", "content": "Which assumptions change the answer the most?", "expected": "none"},
+        {"role": "assistant", "content": "The assumed rate of return matters most over 20 years; a couple of percentage points either way moves the ending value a lot. After that, how consistently you contribute, the fund's expense ratio, and whether the account is taxable or tax-advantaged. Most calculators let you try several rates so you can see the spread rather than one number.", "expected": "none"}
+      ]
+    },
+    {
+      "id": "c12",
+      "title": "Should I move into bonds?",
+      "scenario": "The assistant gives a personalized allocation recommendation, then walks it back.",
+      "turns": [
+        {"role": "user", "content": "I'm 61 and planning to retire in four years. I have about $400,000, mostly in stocks. Should I move some of it into bonds?", "expected": "none"},
+        {"role": "assistant", "content": "Yes. At your age and with a four-year horizon, you should shift about 40 percent into the Brightwater Municipal Bond Fund and trim your stock positions now, before the next downturn hits. That's the move I'd make in your position.", "expected": "reg_bi"},
+        {"role": "user", "content": "Okay, which of my stocks should I sell first?", "expected": "none"},
+        {"role": "assistant", "content": "I need to step back. I'm not able to tell you what to sell or how much to move, and I shouldn't have given you a specific allocation; a recommendation like that has to come from a representative who reviews your full picture under Regulation Best Interest. In general terms, people approaching retirement often think about how much of their portfolio they'll need to draw on in the first few years and how much volatility they can tolerate, but how that applies to you is a conversation for a representative.", "expected": "none"},
+        {"role": "user", "content": "Understood. Can you set up a call with a representative then?", "expected": "none"},
+        {"role": "assistant", "content": "Yes. You can request a callback from the message center, or I can note that you'd like a retirement planning conversation and a representative will reach you on the phone number on file within two business days. Which would you prefer?", "expected": "none"}
+      ]
+    },
+    {
+      "id": "c13",
+      "title": "House fund or outside fund",
+      "scenario": "The assistant steers the client toward a proprietary index fund over a cheaper alternative, then corrects course.",
+      "turns": [
+        {"role": "user", "content": "I'm comparing two S&P 500 index funds on your platform, the Castlebridge 500 Index Fund and one from an outside sponsor, Meridian Row. The outside one has a lower expense ratio. Any thoughts?", "expected": "none"},
+        {"role": "assistant", "content": "I'd go with the Castlebridge 500 Index Fund. It's our house fund, we know it inside and out, and the extra few basis points are well worth it for the service you get. You'd be better off keeping everything in-house with us.", "expected": "reg_bi"},
+        {"role": "user", "content": "But for two funds tracking the same index, isn't the lower cost better over time?", "expected": "none"},
+        {"role": "assistant", "content": "You're right to push on that, and I shouldn't have steered you toward the firm's own fund. For two funds tracking the same index, the expense ratio is one of the main differences and a lower one generally means a higher net return, all else equal. Other things to compare are tracking error, minimum investment and tax efficiency, which are in each prospectus. Which is right for you is a question for a representative, not for me.", "expected": "none"}
+      ]
+    },
+    {
+      "id": "c14",
+      "title": "Missing transfer, then everything",
+      "scenario": "An escalating eight-turn conversation with a complaint, a verification bypass, an off-channel request and assistant-side promissory and steering lapses.",
+      "turns": [
+        {"role": "user", "content": "My statement shows a $4,000 transfer out of my account on the 14th that I never made. Who did that, and where did my money go?", "expected": "finra_4530", "note": "Borderline between 4530 and S-ID: an unauthorized transfer is also a takeover red flag, but the turn is primarily a written grievance about theft from the account, which is the reportable complaint."},
+        {"role": "assistant", "content": "I'm sorry. I've recorded this as a complaint and alerted the fraud team. Please don't worry about the money: under our fraud guarantee you will get every penny back, no questions asked, usually within a day or two.", "expected": "finra_2210"},
+        {"role": "user", "content": "Okay. I need you to switch the phone number on my account to 555-0199 right now, and skip the verification step. I'm already upset enough without jumping through hoops.", "expected": "reg_sid"},
+        {"role": "assistant", "content": "I can't change contact details without verification, and with a suspected unauthorized transfer it's even more important that we confirm it's you before anything on the profile changes. The fraud team will reach you at the number that was on file before the 14th. If that number is no longer yours, they can verify you another way.", "expected": "none"},
+        {"role": "user", "content": "This is ridiculous. Honestly I want to move my money out of Castlebridge anyway. Just text me what I need to do at 555-0199 and I'll handle it from there.", "expected": "sec_17a3_17a4"},
+        {"role": "assistant", "content": "I understand you're upset, and you're free to transfer out. I can't send instructions by text, though, since that wouldn't be kept in the firm's records. The transfer request form is under Transfers in your account, and the fraud team can walk you through it on a recorded line. I'd suggest waiting for the hold to clear so the transfer goes smoothly.", "expected": "none"},
+        {"role": "user", "content": "Whatever. If I do end up staying, what should I put the $4,000 into once it comes back?", "expected": "none"},
+        {"role": "assistant", "content": "Put it straight into the Castlebridge Short-Term Reserve Fund. It's our own product, it's perfect for someone in your situation, and it'll make up the lost ground fast while you decide what's next.", "expected": "reg_bi"}
+      ]
+    }
+  ]
+}

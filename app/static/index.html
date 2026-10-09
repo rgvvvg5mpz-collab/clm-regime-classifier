@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Regime Screening Chat</title>
-  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="stylesheet" href="/static/styles.css?v=3">
 </head>
 <body>
 <div class="layout">
@@ -15,22 +15,35 @@
     <label>Preset
       <select id="preset"></select>
     </label>
-    <label>Provider
+    <label>Conversation source
       <select id="provider">
+        <option value="scripted">Scripted transcript (no LLM)</option>
         <option value="anthropic">Anthropic (Claude)</option>
         <option value="openai_compatible">OpenAI-compatible endpoint</option>
       </select>
     </label>
+
+    <div id="transcriptPanel" class="subpanel">
+      <p class="muted small" id="transcriptInfo">Loading transcript…</p>
+      <label>Conversation
+        <select id="conv"></select>
+      </label>
+      <p class="muted small" id="scenario"></p>
+      <label>Upload your own transcript <span class="muted">(.json, see app/transcripts/FORMAT.md)</span>
+        <input id="upload" type="file" accept=".json,application/json">
+      </label>
+    </div>
+
     <label id="baseUrlRow">Base URL
       <input id="baseUrl" placeholder="http://localhost:11434/v1">
     </label>
-    <label>Model
+    <label id="modelRow">Model
       <input id="model" placeholder="claude-opus-5-5">
     </label>
-    <label>API key <span class="muted">(optional, this tab only)</span>
+    <label id="apiKeyRow">API key <span class="muted">(optional, this tab only)</span>
       <input id="apiKey" type="password" autocomplete="off" placeholder="uses server env var if empty">
     </label>
-    <label>System prompt
+    <label id="systemRow">System prompt
       <textarea id="system" rows="4"></textarea>
     </label>
 
@@ -51,6 +64,12 @@
           the model's reply against the assistant-side regimes.</p>
       </div>
     </div>
+    <div id="playbar" class="playbar">
+      <button id="playNext" type="button">Play next exchange</button>
+      <button id="playAll" type="button" class="secondary">Play all</button>
+      <button id="restart" type="button" class="secondary">Restart</button>
+      <span id="playStatus" class="muted small"></span>
+    </div>
     <form id="composer" class="composer">
       <textarea id="input" rows="2" placeholder="Type a message… (Enter to send, Shift+Enter for newline)"></textarea>
       <button id="send" type="submit">Send</button>
@@ -70,6 +89,6 @@
     </div>
   </form>
 </template>
-<script src="/static/app.js"></script>
+<script src="/static/app.js?v=3"></script>
 </body>
 </html>

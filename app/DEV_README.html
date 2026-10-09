@@ -17,14 +17,26 @@
 </nav>
 
 <h1>Chat UI: developer README</h1>
-<p class="lede">A chat front end where the user picks any LLM. Every turn is screened by the regime classifier, and
-users can flag false positives and false negatives, which are written to a file.</p>
+<p class="lede">A chat front end with two conversation sources: a <b>scripted transcript</b> replayed turn by turn (the
+default, for demos: no LLM or API key needed), or a <b>live LLM</b> (Claude via the Anthropic SDK, or any OpenAI-compatible
+endpoint). Every turn is screened by the regime classifier, and users can flag false positives and false negatives,
+which are written to a file.</p>
 
 <h2>1. Run it</h2>
 <pre><code># from the repo root, after the setup in docs/developer_guide.html
-export ANTHROPIC_API_KEY=...            # only needed for the Anthropic presets
 .venv/bin/python -m uvicorn app.server:app --port 8710
 open http://localhost:8710</code></pre>
+<p>The default preset is <b>Scripted transcript (demo, no LLM)</b>. It loads
+<code>app/static/transcripts/demo_conversations.json</code> (14 conversations written by Claude Fable 5.1 to exercise every
+regime on both speaker sides, plus clean ones), shows a conversation picker, and replays each exchange through the screening
+pipeline with <b>Play next exchange</b> / <b>Play all</b>. Each verdict also shows what the transcript's author expected for
+that turn ("expected Reg BI: agrees", "expected nothing, model said FINRA 2210", or "out of scope for this model" for
+S-P / S-ID under the 5-way checkpoint), so the demo can discuss hits and misses.</p>
+<p><b>Upload your own transcript</b> with the file control in the sidebar; the file is parsed in the browser, never
+stored on the server. Format: <code>app/transcripts/FORMAT.md</code> (JSON, conversations of alternating user/assistant turns,
+optional per-turn <code>expected</code> label and <code>note</code>).</p>
+<p>For a live model instead, pick an Anthropic preset (needs <code>ANTHROPIC_API_KEY</code> or a key typed in the sidebar) or
+an OpenAI-compatible one.</p>
 <p>No LLM handy? Run the offline mock and choose an OpenAI-compatible preset with base URL
 <code>http://localhost:8799/v1</code>:</p>
 <pre><code>.venv/bin/python -m uvicorn app.mock_llm:app --port 8799
@@ -38,9 +50,11 @@ flag form and the scope note adapt automatically.</p>
 
 <h2>2. What happens on a turn</h2>
 <ol>
-<li>The browser posts <code>/api/chat</code> with the provider settings, the visible history and the new message.</li>
-<li>The server screens the <b>user message</b> with the client-side regimes (4530, 17a-3/4, S-P, S-ID, compliant).</li>
-<li>The server calls the selected LLM through <code>app/llm.py</code>.</li>
+<li>The browser posts <code>/api/chat</code> with the provider settings, the visible history and the new message. In
+replay mode it also sends <code>scripted_reply</code> (the transcript's assistant turn) and the <code>expected</code> labels.</li>
+<li>The server screens the <b>user message</b> with the client-side regimes.</li>
+<li>The server calls the selected LLM through <code>app/llm.py</code>; with provider <code>scripted</code> it uses
+<code>scripted_reply</code> instead (an empty reply means the conversation ended on a user turn, and only that turn is screened).</li>
 <li>The server screens the <b>reply</b> with the assistant-side regimes (2210, Reg BI, compliant).</li>
 <li>The turn (both texts, both verdicts, latencies) is appended to <code>app/data/turns.jsonl</code>, and the JSON goes back to the UI.</li>
 <li>Each bubble shows a verdict chip, a <i>details</i> toggle with all class probabilities, and a flag link:
@@ -56,6 +70,7 @@ flag form and the scope note adapt automatically.</p>
 <tr><td><code>app/llm.py</code></td><td>Provider adapters: <code>anthropic</code> (official SDK, server-side refusal fallback on) and <code>openai_compatible</code> (any <code>/chat/completions</code>)</td></tr>
 <tr><td><code>app/config.yaml</code></td><td>Presets, system prompt, screening mode, classifier location, storage paths</td></tr>
 <tr><td><code>app/static/</code></td><td><code>index.html</code>, <code>app.js</code>, <code>styles.css</code>: plain JS, no build step, light and dark themes, phone layout</td></tr>
+<tr><td><code>app/static/transcripts/demo_conversations.json</code></td><td>Bundled demo transcript (Fable-written); <code>app/transcripts/FORMAT.md</code> documents the format</td></tr>
 <tr><td><code>app/mock_llm.py</code></td><td>Offline OpenAI-compatible endpoint for development and tests</td></tr>
 <tr><td><code>app/data/</code></td><td>Runtime output (gitignored): <code>turns.jsonl</code>, <code>feedback.jsonl</code></td></tr>
 </table></div>
@@ -67,7 +82,7 @@ flag form and the scope note adapt automatically.</p>
 <tr><td><code>GET /api/health</code></td><td>-</td><td><code>{classifier_loaded}</code></td></tr>
 <tr><td><code>POST /api/warmup</code></td><td><code>{}</code></td><td>loads the classifier; <code>{seconds}</code></td></tr>
 <tr><td><code>POST /api/classify</code></td><td><code>{texts: [..], unit?}</code></td><td>list of <code>Prediction</code></td></tr>
-<tr><td><code>POST /api/chat</code></td><td><code>{session_id, provider{provider, model, base_url?, api_key?, api_key_env?, max_tokens?}, history[], message, system?}</code></td><td>the logged turn; <code>502</code> with a readable message on LLM errors</td></tr>
+<tr><td><code>POST /api/chat</code></td><td><code>{session_id, provider{provider: scripted|anthropic|openai_compatible, model, base_url?, api_key?, api_key_env?, max_tokens?}, history[], message, system?, scripted_reply?, expected?}</code></td><td>the logged turn (verdicts, and <code>expected</code> when supplied); <code>502</code> with a readable message on LLM errors</td></tr>
 <tr><td><code>POST /api/feedback</code></td><td><code>{turn_id, target: user|assistant, kind: false_positive|false_negative, text, predicted_label, correct_label?, note?}</code></td><td><code>{ok: true}</code></td></tr>
 </table></div>
 
@@ -99,7 +114,9 @@ The server then loads only the 75 MB heads.</p>
 
 <h2>7. Testing checklist</h2>
 <ol>
-<li>Start <code>mock_llm</code> and the server; select an OpenAI-compatible preset with the mock URL.</li>
+<li>Start the server; with the default scripted preset, pick a conversation and <b>Play all</b>; every turn should get a verdict and an "expected …" line, and a flagged assistant turn should show the warning chip.</li>
+<li>Upload <code>app/static/transcripts/demo_conversations.json</code> through the file control; the picker should repopulate. Upload a malformed file; the info line should show a readable error.</li>
+<li>Start <code>mock_llm</code>; select an OpenAI-compatible preset with the mock URL.</li>
 <li>Send <i>“My advisor sold my bonds without asking. Can you guarantee my new fund won't lose money?”</i>; expect the user message → FINRA 4530 and the reply → FINRA 2210.</li>
 <li>With the 5-way checkpoint, send <i>“Here is my SSN 000-12-3456 for the form.”</i>; expect <b>No flag</b> (out of class). With the 7-way checkpoint, expect Reg S-P.</li>
 <li>Flag the reply as a false positive; check that <code>app/data/feedback.jsonl</code> gains a row with <code>kind: false_positive</code>.</li>

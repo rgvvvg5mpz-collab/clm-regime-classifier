@@ -79,6 +79,8 @@ class ChatRequest(BaseModel):
     history: list[Message] = Field(default_factory=list)
     message: str
     system: str | None = None
+    scripted_reply: str | None = None    # provider "scripted": the transcript's assistant turn, no LLM call
+    expected: dict | None = None         # optional {"user": label|"none", "assistant": label|"none"} from the transcript
 
 
 class ClassifyRequest(BaseModel):
@@ -158,19 +160,24 @@ def chat_turn(req: ChatRequest):
     msgs = [m.model_dump() for m in req.history] + [{"role": "user", "content": req.message}]
     try:
         t1 = time.perf_counter()
-        reply = chat(cfg, msgs)
+        if req.provider.provider == "scripted":
+            # Replay mode: the assistant turn comes from the transcript. An empty reply means the
+            # conversation ended on a user turn; only the user message is screened.
+            reply = req.scripted_reply or ""
+        else:
+            reply = chat(cfg, msgs)
         t_llm = time.perf_counter() - t1
     except LLMError as e:
         raise HTTPException(status_code=502, detail=str(e))
     except Exception as e:   # anything else from a provider: still a readable error in the UI
         raise HTTPException(status_code=502, detail=f"LLM call failed ({type(e).__name__}): {e}")
     t2 = time.perf_counter()
-    reply_verdict = screen(reply, "assistant_response")
+    reply_verdict = screen(reply, "assistant_response") if reply else None
     t_reply = time.perf_counter() - t2
     turn = {"turn_id": turn_id, "session_id": req.session_id, "ts": time.time(),
             "provider": cfg.provider, "model": cfg.model, "base_url": cfg.base_url,
-            "user": {"text": req.message, "verdict": user_verdict},
-            "assistant": {"text": reply, "verdict": reply_verdict},
+            "user": {"text": req.message, "verdict": user_verdict, "expected": (req.expected or {}).get("user")},
+            "assistant": {"text": reply, "verdict": reply_verdict, "expected": (req.expected or {}).get("assistant")},
             "latency_s": {"screen_user": round(t_user, 3), "llm": round(t_llm, 3),
                           "screen_reply": round(t_reply, 3)}}
     append_jsonl(TURNS, turn)

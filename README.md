@@ -39,6 +39,8 @@ cd regime_clf && ../.venv/bin/python inference.py "Can you text me on my persona
 cd .. && .venv/bin/python -m uvicorn app.server:app --port 8710            # chat UI: http://localhost:8710
 ```
 
+The chat UI opens in **demo mode**: it replays Fable-written scripted conversations (`app/static/transcripts/demo_conversations.json`) through the screening pipeline, no LLM or API key needed, and shows the author's expected flag next to each verdict. Upload your own transcript (`app/transcripts/FORMAT.md`) or switch to a live Claude / OpenAI-compatible model from the sidebar.
+
 Qwen3-8B (~16 GB) downloads on first use. It runs in-process on Apple Silicon/CPU, or you can point `--emb-url` at a vLLM pooling server.
 
 ## Layout
@@ -47,7 +49,7 @@ Qwen3-8B (~16 GB) downloads on first use. It runs in-process on Apple Silicon/CP
 regime_clf/   dataset build, Qwen3-8B embedder, training, evaluation, inference pipeline
   data/       7-way train/val/test built from RegModels; data_5way/ the 5-way variant
   ood/        Fable OOD sets (spec, raw parts, merged ood_hard_v1.jsonl and ood_low_medium_v1.jsonl)
-app/          chat UI: FastAPI server, Anthropic + OpenAI-compatible adapters, static front end, mock LLM
+app/          chat UI: FastAPI server, scripted-transcript replay (demo default) + Anthropic / OpenAI-compatible adapters, static front end, mock LLM
 Tests/        dated test runs, each with report.html; index.html summarises them
 docs/         HTML documentation
 tools/        name_check.py (blocked real-firm names)

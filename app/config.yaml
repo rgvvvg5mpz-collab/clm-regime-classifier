@@ -3,6 +3,11 @@
 
 # Starting points shown in the UI's model picker; every field can be edited in the UI.
 presets:
+  - name: Scripted transcript (demo, no LLM)
+    provider: scripted
+    model: transcript
+    # Bundled default; the UI also accepts an uploaded .json in the same format (app/transcripts/FORMAT.md)
+    transcript: /static/transcripts/demo_conversations.json
   - name: Claude Opus 5.5 (Anthropic)
     provider: anthropic
     model: claude-opus-5-5
