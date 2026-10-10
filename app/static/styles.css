@@ -84,3 +84,30 @@ button:disabled { opacity: .5; cursor: default; }
 .expected.scope { color: var(--muted); }
 .note-line { font-size: 12px; color: var(--muted); margin: 4px 0 6px; font-style: italic; }
 @media (max-width: 760px) { .playbar { padding: 10px 16px; } }
+
+/* tabs + "The classes" view */
+.tabs { display: flex; gap: 4px; padding: 10px 24px 0; border-bottom: 1px solid var(--border); background: var(--panel); }
+.tab { background: none; color: var(--muted); border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 8px 12px; }
+.tab.on { color: var(--text); border-bottom-color: var(--accent); }
+.chatview { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.about { flex: 1; overflow-y: auto; padding: 20px 24px 32px; }
+.about h2 { margin: 0 0 6px; font-size: 18px; }
+.about figure { margin: 16px 0; }
+.about svg { width: 100%; max-width: 900px; height: auto; display: block; }
+.about table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.about th, .about td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.about th { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.pill.muted { background: var(--code-bg); color: var(--muted); }
+.scroll { overflow-x: auto; }
+svg .dbox { fill: var(--panel); stroke: var(--border); stroke-width: 1.5; }
+svg .dclass { fill: var(--user-bg); stroke: var(--accent); }
+svg .dneg { fill: var(--ok-bg); stroke: var(--ok); }
+svg .doff { fill: var(--code-bg); stroke: var(--border); stroke-dasharray: 5 4; }
+svg .dt { fill: var(--text); font: 600 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+svg .ds { fill: var(--muted); font: 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+svg .dlane { fill: var(--text); font: 700 13px -apple-system, sans-serif; letter-spacing: .04em; }
+svg .doff-t { fill: var(--muted); }
+svg .dedge { fill: none; stroke: var(--muted); stroke-width: 1.5; marker-end: url(#arr); }
+svg .arrfill { fill: var(--muted); }
+@media (max-width: 760px) { .tabs { padding: 8px 16px 0; } .about { padding: 16px; } }
+.chatview[hidden], .about[hidden] { display: none; }   /* the hidden attribute must beat the flex display */

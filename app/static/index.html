@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Regime Screening Chat</title>
-  <link rel="stylesheet" href="/static/styles.css?v=3">
+  <link rel="stylesheet" href="/static/styles.css?v=5">
 </head>
 <body>
 <div class="layout">
@@ -57,6 +57,20 @@
   </aside>
 
   <main class="chat">
+    <nav class="tabs" role="tablist">
+      <button type="button" class="tab on" data-view="chatView" role="tab">Chat</button>
+      <button type="button" class="tab" data-view="aboutView" role="tab">The classes</button>
+    </nav>
+    <section id="aboutView" class="about" hidden>
+      <h2>What the screener looks for</h2>
+      <p class="muted" id="aboutLede"></p>
+      <figure id="classDiagram"></figure>
+      <div class="scroll"><table id="classTable"></table></div>
+      <p class="muted small">Scoring: the message plus a fixed question goes through the frozen Qwen3-8B encoder and a trained
+        state head; each class description goes through a trained action head; the class with the highest scaled cosine wins
+        (softmax over the classes the speaker can trigger). Details in <a href="/docs/architecture.html" target="_blank">docs/architecture.html</a>.</p>
+    </section>
+    <div id="chatView" class="chatview">
     <div id="messages" class="messages">
       <div class="empty" id="empty">
         <h2>Start a conversation</h2>
@@ -74,6 +88,7 @@
       <textarea id="input" rows="2" placeholder="Type a message… (Enter to send, Shift+Enter for newline)"></textarea>
       <button id="send" type="submit">Send</button>
     </form>
+    </div>
   </main>
 </div>
 
@@ -89,6 +104,6 @@
     </div>
   </form>
 </template>
-<script src="/static/app.js?v=4"></script>
+<script src="/static/app.js?v=5"></script>
 </body>
 </html>

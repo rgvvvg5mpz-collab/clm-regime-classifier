@@ -6,6 +6,17 @@ const $ = (id) => document.getElementById(id);
 const state = { config: null, labels: {}, history: [], sessionId: newId(), busy: false,
                 transcript: null, convIdx: 0, turnIdx: 0 };
 // Display names for "expected" labels that the loaded model may not cover.
+// One-line triggers for the diagram / table on the "The classes" tab.
+const CLASS_INFO = {
+  finra_2210: ["FINRA Rule 2210", "Misleading, promissory or unbalanced statements; performance projections; missing disclosures"],
+  reg_bi: ["Regulation Best Interest", "Personalised recommendation of a security, strategy, account or rollover; steering to house products"],
+  finra_4530: ["FINRA Rule 4530", "Written grievance: sales practice, unauthorised trades, account errors, theft or forgery"],
+  sec_17a3_17a4: ["SEC Rules 17a-3 / 17a-4", "Off-channel contact requests, \u201cdon\u2019t record this\u201d, account updates that must be captured"],
+  reg_sp: ["Regulation S-P", "Shares SSN, date of birth or account numbers; privacy or opt-out requests; data incidents"],
+  reg_sid: ["Regulation S-ID", "Identity-theft red flags: account-takeover signals, suspicious ID details, bypassing verification"],
+};
+const SPEAKER_CLASSES = { client_message: ["finra_4530", "sec_17a3_17a4", "reg_sp", "reg_sid"],
+                          assistant_response: ["finra_2210", "reg_bi"] };
 const ALL_NAMES = { none: "nothing", compliant: "nothing", no_flag: "nothing",
   finra_2210: "FINRA 2210", reg_bi: "Reg BI", finra_4530: "FINRA 4530",
   sec_17a3_17a4: "SEC 17a-3/4", reg_sp: "Reg S-P", reg_sid: "Reg S-ID" };
@@ -169,6 +180,86 @@ function onUpload(ev) {
   ev.target.value = "";
 }
 
+// ---------------------------------------------------------------- "The classes" tab
+function svgEl(tag, attrs = {}, text) {
+  const e = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+function wrapText(e, text, maxChars) {   // crude word-wrap into <tspan>s
+  const words = text.split(" "); const lines = [""];
+  for (const w of words) {
+    if ((lines[lines.length - 1] + " " + w).trim().length > maxChars) lines.push(w);
+    else lines[lines.length - 1] = (lines[lines.length - 1] + " " + w).trim();
+  }
+  const x = e.getAttribute("x");
+  lines.forEach((l, i) => e.append(svgEl("tspan", { x, dy: i ? "1.25em" : 0 }, l)));
+  return lines.length;
+}
+
+function renderAbout() {
+  const labels = state.labels, negative = Object.keys(labels)[0];
+  const covered = (k) => k in labels;
+  const nCov = Object.keys(labels).length - 1;
+  $("aboutLede").textContent = `The loaded model is the ${nCov + 1}-way checkpoint: it names one of ${nCov} regimes, or ` +
+    `\u201c${labels[negative]}\u201d. Which regimes can apply depends on who is speaking.` +
+    (Object.keys(CLASS_INFO).some((k) => !covered(k)) ? " Greyed classes are outside this model\u2019s scope: that content is left unflagged." : "");
+
+  const W = 900, lane = 400, boxH = 78, gap = 14, top = 150, left = [40, 460];
+  const rows = Math.max(SPEAKER_CLASSES.client_message.length, SPEAKER_CLASSES.assistant_response.length);
+  const H = top + rows * (boxH + gap) + 120;
+  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "How a message is routed to a regime class" });
+  const defs = svgEl("defs");
+  const m = svgEl("marker", { id: "arr", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto" });
+  m.append(svgEl("path", { d: "M0,0 L10,5 L0,10 z", class: "arrfill" })); defs.append(m); svg.append(defs);
+
+  // source box
+  svg.append(svgEl("rect", { x: W / 2 - 170, y: 16, width: 340, height: 54, rx: 10, class: "dbox" }));
+  svg.append(svgEl("text", { x: W / 2, y: 38, "text-anchor": "middle", class: "dt" }, "One message from the firm\u2019s GenAI chat"));
+  svg.append(svgEl("text", { x: W / 2, y: 58, "text-anchor": "middle", class: "ds" }, "screened on its own, with the speaker known"));
+  // lanes
+  [["client_message", "The client says\u2026", left[0]], ["assistant_response", "The assistant says\u2026", left[1]]].forEach(([unit, title, x]) => {
+    svg.append(svgEl("path", { d: `M${W / 2 + (x < W / 2 ? -40 : 40)} 70 C${W / 2 + (x < W / 2 ? -40 : 40)} 100 ${x + lane / 2} 90 ${x + lane / 2} 112`, class: "dedge" }));
+    svg.append(svgEl("text", { x: x + lane / 2, y: 134, "text-anchor": "middle", class: "dlane" }, title));
+    SPEAKER_CLASSES[unit].forEach((k, i) => {
+      const y = top + i * (boxH + gap), on = covered(k);
+      svg.append(svgEl("rect", { x, y, width: lane, height: boxH, rx: 9, class: on ? "dbox dclass" : "dbox doff" }));
+      const t = svgEl("text", { x: x + 14, y: y + 24, class: on ? "dt" : "dt doff-t" }, CLASS_INFO[k][0] + (on ? "" : "  \u2192 out of scope, no flag"));
+      svg.append(t);
+      const d = svgEl("text", { x: x + 14, y: y + 44, class: on ? "ds" : "ds doff-t" }); wrapText(d, CLASS_INFO[k][1], 62); svg.append(d);
+    });
+  });
+  // negative class
+  const ny = top + rows * (boxH + gap) + 10;
+  svg.append(svgEl("rect", { x: 40, y: ny, width: W - 80, height: 60, rx: 9, class: "dbox dneg" }));
+  svg.append(svgEl("text", { x: W / 2, y: ny + 25, "text-anchor": "middle", class: "dt" }, `${labels[negative]}: nothing to flag`));
+  svg.append(svgEl("text", { x: W / 2, y: ny + 45, "text-anchor": "middle", class: "ds" },
+    "ordinary questions, education, balanced and disclosed answers" + (Object.keys(CLASS_INFO).some((k) => !covered(k)) ? ", and anything outside this model\u2019s scope" : "")));
+  $("classDiagram").replaceChildren(svg);
+
+  const tbl = $("classTable"); tbl.replaceChildren();
+  const hdr = el("tr"); ["Class", "Speaker", "What triggers it", "This model"].forEach((h) => hdr.append(el("th", "", h))); tbl.append(hdr);
+  const rowFor = (k, speaker) => {
+    const r = el("tr"); const on = covered(k);
+    r.append(el("td", "", CLASS_INFO[k][0]), el("td", "", speaker), el("td", "", CLASS_INFO[k][1]));
+    const c = el("td"); c.append(el("span", "pill " + (on ? "good" : "muted"), on ? "covered" : "out of scope \u2192 " + labels[negative])); r.append(c);
+    return r;
+  };
+  SPEAKER_CLASSES.assistant_response.forEach((k) => tbl.append(rowFor(k, "assistant")));
+  SPEAKER_CLASSES.client_message.forEach((k) => tbl.append(rowFor(k, "client")));
+  const neg = el("tr"); neg.append(el("td", "", labels[negative]), el("td", "", "either"),
+    el("td", "", "Nothing to flag among the covered regimes"), el("td", "", "always"));
+  tbl.append(neg);
+}
+
+function showView(id) {
+  document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("on", b.dataset.view === id));
+  $("chatView").hidden = id !== "chatView";
+  $("aboutView").hidden = id !== "aboutView";
+  if (id === "aboutView" && state.config) renderAbout();
+}
+
 // ---------------------------------------------------------------- rendering
 function el(tag, cls, text) {
   const e = document.createElement(tag);
@@ -313,6 +404,7 @@ async function send(e) {
   await runTurn(text);
 }
 
+document.querySelectorAll(".tab").forEach((b) => b.onclick = () => showView(b.dataset.view));
 $("composer").onsubmit = send;
 $("input").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) send(e); });
 $("provider").onchange = () => { syncProvider(); if ($("provider").value === "scripted" && !state.transcript) loadTranscriptUrl("/static/transcripts/demo_conversations.json"); };

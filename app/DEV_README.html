@@ -35,6 +35,11 @@ S-P / S-ID under the 5-way checkpoint), so the demo can discuss hits and misses.
 <p><b>Upload your own transcript</b> with the file control in the sidebar; the file is parsed in the browser, never
 stored on the server. Format: <code>app/transcripts/FORMAT.md</code> (JSON, conversations of alternating user/assistant turns,
 optional per-turn <code>expected</code> label and <code>note</code>).</p>
+<p><b>"The classes" tab</b> (top of the chat area) draws a diagram of the label space from the loaded checkpoint:
+the speaker split, each regime with its one-line trigger, the negative class, and any out-of-scope regimes greyed out
+(Reg S-P / S-ID under the 5-way model). It is generated in <code>app.js</code> (<code>renderAbout</code>) from
+<code>/api/config</code>, so it stays correct when the checkpoint changes; the trigger text lives in <code>CLASS_INFO</code>.
+The server also mounts <code>docs/</code> at <code>/docs</code> so the tab can link to the architecture page.</p>
 <p>For a live model instead, pick an Anthropic preset (needs <code>ANTHROPIC_API_KEY</code> or a key typed in the sidebar) or
 an OpenAI-compatible one.</p>
 <p>No LLM handy? Run the offline mock and choose an OpenAI-compatible preset with base URL

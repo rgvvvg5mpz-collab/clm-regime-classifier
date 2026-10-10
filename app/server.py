@@ -100,6 +100,7 @@ class FeedbackRequest(BaseModel):
 
 app = FastAPI(title="CLM regime screening chat")
 app.mount("/static", StaticFiles(directory=os.path.join(ROOT, "app", "static")), name="static")
+app.mount("/docs", StaticFiles(directory=os.path.join(ROOT, "docs")), name="docs")      # linked from the "The classes" tab
 
 
 @app.get("/")
