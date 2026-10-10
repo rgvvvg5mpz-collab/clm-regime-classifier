@@ -349,14 +349,14 @@ function showView(id) {
     b.classList.toggle("on", b.dataset.view === id);
     const v = $(b.dataset.view); if (v) v.hidden = b.dataset.view !== id;
   });
+  // the sidebar (conversation + screening model) only where it is used; curation and training get the full width
+  document.body.classList.toggle("no-sidebar", id === "curateView" || id === "trainView");
   // the sidebar's conversation controls belong to the Chat & flag tab only
   const chat = id === "chatView";
   $("convSection").hidden = !chat; $("chatOnly").hidden = !chat;
   const hint = $("sideHint");
   hint.hidden = chat;
-  hint.textContent = { curateView: "Curated datasets go to the Train tab; the model selected above is not used here.",
-                       trainView: "Train a model here; it appears in the Screening model list when done.",
-                       postView: "Post-training starts from the model selected above.",
+  hint.textContent = { postView: "Post-training starts from the model selected above.",
                        aboutView: "The diagram describes the model selected above." }[id] || "";
   if (id === "aboutView" && state.config) renderAbout();
 }

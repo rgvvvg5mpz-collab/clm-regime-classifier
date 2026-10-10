@@ -187,3 +187,7 @@ pre.notes { white-space: pre-wrap; font-size: 12px; background: var(--code-bg); 
 
 details.local { margin-top: 2px; } details.local summary { cursor: pointer; color: var(--muted); }
 details.local[open] summary { margin-bottom: 6px; }
+
+/* tabs without the sidebar (Data curation, Train) use the full width */
+body.no-sidebar .layout { grid-template-columns: 1fr; }
+body.no-sidebar #sidebar { display: none; }

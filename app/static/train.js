@@ -34,6 +34,16 @@
   }
 
   // ---------------------------------------------------------------- Train tab
+  async function loadInitModels() {   // Train step 4: start from the reference heads or any registry model
+    try {
+      const m = await api("/api/train/models"); const sel = $("trainInit"); const keep = sel.value;
+      sel.replaceChildren(new Option("reference CLM heads (fresh model)", "reference"));
+      const g = document.createElement("optgroup"); g.label = "continue from a registry model";
+      m.models.slice().reverse().forEach((x) => g.append(new Option(`${x.name} v${x.version || 1} (${x.labels.length} classes)`, x.checkpoint)));
+      if (g.children.length) sel.append(g);
+      sel.value = [...sel.options].some((o) => o.value === keep) ? keep : "reference";
+    } catch { /* optional */ }
+  }
   async function loadExamples() {   // "Project data" pickers: files in data/, examples/regulatory/samples/, curated runs, example splits
     try {
       const files = (await api("/api/files")).filter((f) => f.kind === "rows");
@@ -279,4 +289,5 @@
   document.querySelector('.tab[data-view="postView"]').addEventListener("click", () => { loadActive(); loadModels(); });
   window.trainTabs = { loadModels, loadActive, showUpload, loadExamples };
   document.querySelectorAll('[data-view="trainView"], [data-view="postView"]').forEach((b) => b.addEventListener("click", loadExamples));
+  document.querySelectorAll('[data-view="trainView"]').forEach((b) => b.addEventListener("click", loadInitModels));
 })();
