@@ -14,12 +14,12 @@ The browser UI covers the whole loop:
 
 Every model is versioned in a registry, and any version can be selected from the sidebar.
 
-**▶ Watch the walkthrough:** [download `clasp_demo.mp4`](https://github.com/rgvvvg5mpz-collab/clm-regime-classifier/releases/download/demo-v1/clasp_demo.mp4) (9½ minutes, 1080p, narrated, with chapters and subtitles; [release page](https://github.com/rgvvvg5mpz-collab/clm-regime-classifier/releases/tag/demo-v1)). The slides are [`docs/demo/slides.html`](docs/demo/slides.html). `scripts/setup.sh --with-video` saves the video to `docs/demo/` for offline use; see [`docs/demo/`](docs/demo/README.md) to regenerate it.
+**▶ Watch the walkthrough:** [download `clasp_demo.mp4`](https://github.com/rgvvvg5mpz-collab/clasp/releases/download/demo-v1/clasp_demo.mp4) (9½ minutes, 1080p, narrated, with chapters and subtitles; [release page](https://github.com/rgvvvg5mpz-collab/clasp/releases/tag/demo-v1)). The slides are [`docs/demo/slides.html`](docs/demo/slides.html). `scripts/setup.sh --with-video` saves the video to `docs/demo/` for offline use; see [`docs/demo/`](docs/demo/README.md) to regenerate it.
 
 ## Run it
 
 ```bash
-git clone https://github.com/rgvvvg5mpz-collab/clm-regime-classifier.git && cd clm-regime-classifier
+git clone https://github.com/rgvvvg5mpz-collab/clasp.git && cd clasp
 scripts/run_ui.sh
 ```
 

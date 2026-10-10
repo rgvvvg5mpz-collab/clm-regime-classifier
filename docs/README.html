@@ -70,16 +70,16 @@ instead of left alone) and blunt Reg BI recommendations (read as FINRA 2210 by b
 
 <h2>Walkthrough video</h2>
 <p>A narrated, nine-and-a-half-minute tour: what CLASP is, how it scores and learns, then every tab of the workbench.
-The video is a release asset: <a href="https://github.com/rgvvvg5mpz-collab/clm-regime-classifier/releases/download/demo-v1/clasp_demo.mp4">download clasp_demo.mp4</a> (<a href="https://github.com/rgvvvg5mpz-collab/clm-regime-classifier/releases/tag/demo-v1">release page</a>; subtitles in
+The video is a release asset: <a href="https://github.com/rgvvvg5mpz-collab/clasp/releases/download/demo-v1/clasp_demo.mp4">download clasp_demo.mp4</a> (<a href="https://github.com/rgvvvg5mpz-collab/clasp/releases/tag/demo-v1">release page</a>; subtitles in
 <a href="demo/clasp_demo.srt">clasp_demo.srt</a>). Run <code>scripts/setup.sh --with-video</code> to save it next to this page, and the
 player below will play it offline. Slides: <a href="demo/slides.html">docs/demo/slides.html</a> (arrow keys to navigate).</p>
 <video controls preload="metadata" style="width:100%;max-width:960px;border-radius:12px;border:1px solid var(--border)">
   <source src="demo/clasp_demo.mp4" type="video/mp4">
-  <source src="https://github.com/rgvvvg5mpz-collab/clm-regime-classifier/releases/download/demo-v1/clasp_demo.mp4" type="video/mp4">
+  <source src="https://github.com/rgvvvg5mpz-collab/clasp/releases/download/demo-v1/clasp_demo.mp4" type="video/mp4">
 </video>
 
 <h2>Quick start</h2>
-<pre><code>git clone https://github.com/rgvvvg5mpz-collab/clm-regime-classifier.git &amp;&amp; cd clm-regime-classifier
+<pre><code>git clone https://github.com/rgvvvg5mpz-collab/clasp.git &amp;&amp; cd clasp
 scripts/run_ui.sh          # first run sets up .venv, CLM and the shipped models, then serves http://localhost:8710</code></pre>
 <p>Or open the clone in Claude Code and ask it to <b>run the UI</b>: the repo ships a <code>run-ui</code> skill and launch
 configurations for that. <code>scripts/setup.sh</code> does the setup on its own (idempotent); the Qwen3-8B encoder (~16 GB)

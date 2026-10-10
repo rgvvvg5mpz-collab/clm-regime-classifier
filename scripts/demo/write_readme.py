@@ -9,8 +9,8 @@ m, s = divmod(info["duration_s"], 60)
 chapters = "\n".join(f"| {int(t // 60)}:{int(t % 60):02d} | {title} |" for t, title in info["chapters"])
 open(os.path.join(ROOT, "docs", "demo", "README.md"), "w").write(f"""# CLASP walkthrough video
 
-**[Download `clasp_demo.mp4`](https://github.com/rgvvvg5mpz-collab/clm-regime-classifier/releases/download/demo-v1/clasp_demo.mp4)**
-([release `demo-v1`](https://github.com/rgvvvg5mpz-collab/clm-regime-classifier/releases/tag/demo-v1)): {int(m)} min {int(s)} s, 1080p H.264,
+**[Download `clasp_demo.mp4`](https://github.com/rgvvvg5mpz-collab/clasp/releases/download/demo-v1/clasp_demo.mp4)**
+([release `demo-v1`](https://github.com/rgvvvg5mpz-collab/clasp/releases/tag/demo-v1)): {int(m)} min {int(s)} s, 1080p H.264,
 narrated by macOS {info["voice"]}, with an English subtitle track (also here as [`clasp_demo.srt`](clasp_demo.srt)).
 {os.path.getsize(mp4) / 1e6:.0f} MB, so it is a release asset rather than a file in git; `scripts/setup.sh --with-video` saves it here.
 

@@ -48,7 +48,7 @@ step "Reference CLM heads (~75 MB, ~/.cache/clm/)"
 
 step "Shipped example models (models/, ~75 MB each)"
 REPO_URL="$(git remote get-url origin 2>/dev/null | sed -E 's#^git@github.com:#https://github.com/#; s#\.git$##' || true)"
-case "$REPO_URL" in https://github.com/*) ;; *) REPO_URL="https://github.com/rgvvvg5mpz-collab/clm-regime-classifier" ;; esac
+case "$REPO_URL" in https://github.com/*) ;; *) REPO_URL="https://github.com/rgvvvg5mpz-collab/clasp" ;; esac
 mkdir -p models
 fetch() {   # fetch <release tag> <asset>, then verify the published checksum
   local tag="$1" name="$2" f="models/$2"
