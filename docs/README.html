@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CLM Regime Classifier</title>
+<title>CLASP Overview</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body><div class="wrap">
@@ -16,11 +16,13 @@
   <a href="../Tests/index.html">Test runs</a>
 </nav>
 
-<h1>CLM Regime Classifier</h1>
-<p class="lede">A classifier that reads a message from a broker-dealer's GenAI chat channel and names the
-securities-regulation regime it implicates, or flags nothing. Two label sets are trained: the original <b>7-way</b>
-model and a <b>5-way</b> model that drops Reg S-P and Reg S-ID and treats their messages as out-of-class “no flag” samples. It is built on <b>CLM-8B</b>, the contrastive
-language model from Stanford and NVIDIA (Sept 2026), and is trained on the six RegModels datasets.</p>
+<h1>CLASP: Contrastive Labelling And System-1 Prediction</h1>
+<p class="lede"><b>CLASP</b> is a workbench for building <b>System-1 text classifiers</b> with a contrastive loss: two small
+heads (CLM-8B, Stanford/NVIDIA) trained over a frozen Qwen3-8B encoder, so a few hundred labelled rows per class train a model in
+about a minute. The browser UI covers the whole loop: <b>0</b> curate data with Claude Code, <b>1</b> train, <b>2</b> use the model to
+screen conversations and flag its mistakes, <b>3</b> fold the flags back in as a gated, versioned new model.</p>
+<p>The repo ships one worked example, a <b>regulatory regime screener</b> for a broker-dealer's GenAI chat (FINRA 2210, Reg BI,
+FINRA 4530, SEC 17a-3/4, Reg S-P, Reg S-ID), trained on the six RegModels datasets. The numbers below are that example's.</p>
 
 <div class="cards">
   <div class="card"><div class="k">5-way: in-distribution test macro-F1</div><div class="v">0.983</div><div class="s">95% CI 0.977–0.989 · n = 2,501</div></div>
@@ -67,40 +69,33 @@ instead of left alone) and blunt Reg BI recommendations (read as FINRA 2210 by b
 <a href="../Tests/index.html">test runs</a>.</div>
 
 <h2>Quick start</h2>
-<pre><code># 1. environment (Python 3.12+; tested on 3.14, macOS / Apple Silicon)
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-git clone https://github.com/Contrastive-LM/CLM.git &amp;&amp; .venv/bin/pip install --no-deps -e CLM
-
-# 2. weights: Qwen3-8B (~16 GB, auto-downloads on first use), reference CLM heads, our fine-tuned heads
-.venv/bin/clm-download
-gh release download v1.1 -p clm_regime_5way.pt -D regime_clf/checkpoints   # 5-way (UI default)
-gh release download v1.0 -p clm_regime_7way.pt -D regime_clf/checkpoints   # 7-way
-
-# 3. classify
-cd regime_clf
-../.venv/bin/python inference.py "Can you text me on my personal cell instead?" --unit client_message
-
-# 4. chat UI with screening
-cd .. &amp;&amp; .venv/bin/python -m uvicorn app.server:app --port 8710   # open http://localhost:8710</code></pre>
+<pre><code>git clone https://github.com/rgvvvg5mpz-collab/clm-regime-classifier.git &amp;&amp; cd clm-regime-classifier
+scripts/run_ui.sh          # first run sets up .venv, CLM and the shipped models, then serves http://localhost:8710</code></pre>
+<p>Or open the clone in Claude Code and ask it to <b>run the UI</b>: the repo ships a <code>run-ui</code> skill and launch
+configurations for that. <code>scripts/setup.sh</code> does the setup on its own (idempotent); the Qwen3-8B encoder (~16 GB)
+downloads on first use. Needs Python 3.10+, ~20 GB of disk, and Apple Silicon with 24 GB+ or a CUDA GPU with 24 GB+.</p>
+<p>From code, outside the UI:</p>
+<pre><code>.venv/bin/python -m engine.classifier --checkpoint models/clm_regime_5way.pt "Can you text me on my personal cell instead?" --unit client_message</code></pre>
 
 <h2>Repository map</h2>
 <div class="scroll"><table>
 <tr><th>Path</th><th>What it is</th></tr>
-<tr><td><code>regime_clf/</code></td><td>Model code: dataset build, Qwen3-8B embedder for Apple Silicon, training and sweep, evaluation, inference pipeline</td></tr>
-<tr><td><code>regime_clf/data/</code>, <code>data_5way/</code></td><td>Merged train/val/test for the 7-way and 5-way label sets (built from RegModels by <code>build_dataset.py</code>)</td></tr>
-<tr><td><code>regime_clf/ood/</code></td><td>Fable-generated OOD sets: the generation spec, five raw parts, the merged <code>ood_hard_v1.jsonl</code> and <code>ood_low_medium_v1.jsonl</code></td></tr>
-<tr><td><code>app/</code></td><td>Chat UI: FastAPI server, provider adapters (Anthropic plus any OpenAI-compatible endpoint), static front end, mock LLM</td></tr>
-<tr><td><code>Tests/</code></td><td>Dated test runs, each with a <code>report.html</code>, plus <a href="../Tests/index.html">index.html</a></td></tr>
-<tr><td><code>docs/</code></td><td>This documentation</td></tr>
-<tr><td><code>CLAUDE.md</code></td><td>Orientation for Claude Code sessions</td></tr>
+<tr><td><code>app/</code></td><td>The workbench UI: FastAPI server, tabs (curation, train, chat, post-train), LLM adapters, mocks for offline use</td></tr>
+<tr><td><code>engine/</code></td><td>The generic core: in-process Qwen3-8B encoder and embedding store, contrastive head trainer, classifier (Python API + CLI)</td></tr>
+<tr><td><code>examples/regulatory/</code></td><td>The worked example: label sets, dataset build from RegModels, research scripts, OOD sets, samples and the demo transcript</td></tr>
+<tr><td><code>models/</code></td><td>Checkpoints (<code>*.pt</code>, downloaded or trained; gitignored) and their <code>.meta.json</code> sidecars</td></tr>
+<tr><td><code>data/</code></td><td>Your own datasets and transcripts; listed first in the UI's Project data pickers</td></tr>
+<tr><td><code>scripts/</code></td><td><code>setup.sh</code> (one-time, idempotent) and <code>run_ui.sh</code></td></tr>
+<tr><td><code>Tests/</code></td><td>Dated evaluation runs, each with a <code>report.html</code>; <a href="../Tests/index.html">index.html</a> and <code>METRICS.md</code> summarise them</td></tr>
+<tr><td><code>docs/</code>, <code>CLAUDE.md</code></td><td>This documentation; orientation for Claude Code</td></tr>
+<tr><td><code>tools/</code></td><td><code>name_check.py</code> (blocked real-firm names; run before pushing)</td></tr>
 </table></div>
 
 <h2>Provenance</h2>
 <ul>
 <li>CLM-8B: <a href="https://huggingface.co/Contrastive-LM/CLM-v0.1-8B">Contrastive-LM/CLM-v0.1-8B</a>, code <a href="https://github.com/Contrastive-LM/CLM">Contrastive-LM/CLM</a> (Apache 2.0). Base encoder <a href="https://huggingface.co/Qwen/Qwen3-8B">Qwen/Qwen3-8B</a> (Apache 2.0).</li>
 <li>Training data: <a href="https://github.com/rgvvvg5mpz-collab/RegModels">RegModels</a> <code>slm-supervisory-suite/data</code> v2 splits (synthetic). One real fund-family name is replaced with a fictional one (“Harborline”) at build time.</li>
-<li>OOD sets: written by Claude Fable 5.1 to <code>regime_clf/ood/SPEC.md</code> (hard/very-hard: 315 rows; low/medium: 210 rows), then checked against the training data for duplicates and near-duplicates.</li>
+<li>OOD sets: written by Claude Fable 5.1 to <code>examples/regulatory/ood/SPEC.md</code> (hard/very-hard: 315 rows; low/medium: 210 rows), then checked against the training data for duplicates and near-duplicates.</li>
 </ul>
 <p class="muted">This is research code. It is not a compliance system of record, and its output is not legal advice.</p>
 </div></body></html>

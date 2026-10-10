@@ -31,5 +31,6 @@
       "negative": false
     }
   },
-  "negative": "no_flag"
+  "negative": "no_flag",
+  "instructions": "Which securities regulation does this message from a broker-dealer's AI chat channel potentially violate or trigger, if any?"
 }

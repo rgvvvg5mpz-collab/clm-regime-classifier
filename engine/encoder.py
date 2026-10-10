@@ -1,5 +1,5 @@
-"""Drop-in replacement for clm.embedder.Embedder that runs Qwen3-8B in-process on
-Apple Silicon (MPS) instead of calling a vLLM pooling server.
+"""In-process Qwen3-8B encoder (CUDA / Apple Silicon / CPU): a drop-in for
+clm.embedder.Embedder that needs no vLLM server, plus a content-addressed embedding store.
 
 Matches the reference recipe: raw text, no special tokens, last-token pooling of
 the final (post-norm) hidden state, L2-normalised.
@@ -14,15 +14,14 @@ import torch
 
 from clm.embedder import l2
 
-MODEL = "Qwen/Qwen3-8B"
-CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "emb_cache")
+from .paths import CACHE_DIR, ENCODER as MODEL, device as default_device
 
 
 class MPSEmbedder:
     def __init__(self, model: str = MODEL, max_tokens: int = 2048, batch: int = 16,
                  device: str | None = None, dtype=torch.bfloat16):
         from transformers import AutoModel, AutoTokenizer
-        self.device = device or ("mps" if torch.backends.mps.is_available() else "cpu")
+        self.device = device or default_device()
         self.tok = AutoTokenizer.from_pretrained(model)
         self.model = AutoModel.from_pretrained(model, dtype=dtype).to(self.device).eval()
         self.max_tokens, self.batch = max_tokens, batch

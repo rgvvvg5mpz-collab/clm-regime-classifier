@@ -4,9 +4,9 @@ Expected (from huggingface.co/Contrastive-LM/CLM-v0.1-8B):
   department -> billing ~0.94
   tides      -> "The Moon's gravitational pull." ~0.99
 """
+import classes  # noqa: F401  (puts the repo root on sys.path)
 from clm import Choice, Engine, Noul, Score
-
-from mps_embedder import MPSEmbedder
+from engine.encoder import MPSEmbedder
 
 engine = Engine(embedder=MPSEmbedder(), device="cpu", action_cache=0)
 

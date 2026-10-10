@@ -22,12 +22,13 @@ from sklearn.metrics import f1_score
 
 from classes import CKPT_NAME, CLASSES, DATA_DIR, INSTRUCTIONS, LABEL_SET, LABELS, to_label_set
 from clm.schema import state_text
-from inference import UNIT_CLASSES
-from mps_embedder import MPSEmbedder, embed_cached
+from classes import UNIT_CLASSES
+from engine.encoder import MPSEmbedder, embed_cached
+from engine.paths import MODELS_DIR
 from run_experiment import REF_CKPT, clm_predict, load_heads, metrics
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-FT_CKPT = os.path.join(HERE, "checkpoints", CKPT_NAME)
+FT_CKPT = os.path.join(MODELS_DIR, CKPT_NAME)
 PROBE_C = 100.0
 
 
@@ -77,7 +78,8 @@ def main():
     ap.add_argument("--checkpoint", default=FT_CKPT)
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
-    dev = "mps" if torch.backends.mps.is_available() else "cpu"
+    from engine.paths import device as _device
+    dev = _device()
 
     rows = [json.loads(l) for l in open(a.data)]
     for r in rows:

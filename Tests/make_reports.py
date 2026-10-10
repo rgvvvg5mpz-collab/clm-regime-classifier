@@ -198,7 +198,7 @@ def ood(d: str) -> dict:
     body = f"""<h1>{e(title)} — {date}</h1>
 <p class="lede">{M['n']} messages written by Claude Fable 5.1 to be out of distribution:
 {", ".join(f"{v} {k}" for k, v in sorted(diff.items()))} difficulty; axes {", ".join(f"{k} {v}" for k, v in sorted(axes.items()))};
-{M['n'] // len(M['labels'])} per class.{sim} Spec: <code>regime_clf/ood/SPEC.md</code>.</p>
+{M['n'] // len(M['labels'])} per class.{sim} Spec: <code>examples/regulatory/ood/SPEC.md</code>.</p>
 <div class="cards">
 <div class="card"><div class="k">Macro-F1 (CLM fine-tuned, unit-masked)</div><div class="v">{best['macro_f1']:.3f}</div><div class="s">95% CI {best['macro_f1_95ci'][0]:.3f}–{best['macro_f1_95ci'][1]:.3f}</div></div>
 <div class="card"><div class="k">Accuracy</div><div class="v">{pct(best['accuracy'])}</div><div class="s">{M['n']} rows</div></div>
@@ -218,7 +218,7 @@ def ood(d: str) -> dict:
 <h2>Files</h2><ul><li><code>metrics.json</code>: all methods, slices, CIs</li>
 <li><code>predictions.jsonl</code>: every row with gold, prediction, Fable's rationale</li>
 <li><code>notes.html</code>: interpretation (optional)</li>
-<li>Data: <code>{e(M['data'])}</code> (built by <code>regime_clf/ood/build_ood.py</code>)</li></ul>"""
+<li>Data: <code>{e(M['data'])}</code> (built by <code>examples/regulatory/ood/build_ood.py</code>)</li></ul>"""
     return {"title": f"OOD {short} ({len(M['labels'])}-class)", "body": body, "kind": f"OOD validation ({diff_label}), {label_set}",
             "n": M["n"], "macro_f1": best["macro_f1"], "ci": best["macro_f1_95ci"], "acc": best["accuracy"],
             "baseline": M["linear_probe"]["macro_f1"], "M": M}

@@ -7,7 +7,7 @@ presets:
     provider: scripted
     model: transcript
     # Bundled default; the UI also accepts an uploaded .json in the same format (app/transcripts/FORMAT.md)
-    transcript: /static/transcripts/demo_conversations.json
+    transcript: examples/regulatory/transcripts/demo_conversations.json
   - name: Claude Opus 5.5 (Anthropic)
     provider: anthropic
     model: claude-opus-5-5
@@ -36,7 +36,7 @@ system_prompt: >-
 
 screening:
   # Score the user's message with the client-side regimes and the model's reply with the
-  # assistant-side regimes (see regime_clf/inference.py UNIT_CLASSES).
+  # assistant-side classes (each model's speaker masks live in models/<name>.meta.json).
   unit_masking: true
   # When the reply is flagged: "warn" shows it with a banner; "withhold" hides it until
   # the user chooses to reveal it.
@@ -46,7 +46,7 @@ classifier:
   # Which model screens the chat. Both are release assets; the UI adapts its labels to the file.
   #   clm_regime_5way.pt  no_flag + FINRA 2210, Reg BI, FINRA 4530, SEC 17a-3/4 (Reg S-P / S-ID -> no flag)
   #   clm_regime_7way.pt  compliant + the four above + Reg S-P + Reg S-ID
-  checkpoint: regime_clf/checkpoints/clm_regime_5way.pt
+  checkpoint: models/clm_regime_5way.pt
   # Leave empty to run Qwen3-8B in-process (Apple Silicon / CPU / CUDA); or point at a
   # vLLM pooling server: vllm serve Qwen/Qwen3-8B --runner pooling --port 8090
   emb_url: ""

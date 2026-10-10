@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>System 1 Workbench: UI Dev README</title>
+<title>CLASP Workbench: UI Dev README</title>
 <link rel="stylesheet" href="../docs/style.css">
 </head>
 <body><div class="wrap">
@@ -16,7 +16,7 @@
   <a href="../Tests/index.html">Test runs</a>
 </nav>
 
-<h1>System 1 Workbench (chat UI): developer README</h1>
+<h1>CLASP Workbench (chat UI): developer README</h1>
 <p class="lede">The UI is generic: any model in the registry (shipped, trained on the Train tab, or post-trained) can be selected from
 the sidebar, and the verdict chips, flag form and Classes tab follow the selected checkpoint. The regulatory regime screener is the
 worked example that ships with it. A chat front end with two conversation sources: a <b>scripted transcript</b> replayed turn by turn (the
@@ -29,7 +29,7 @@ which are written to a file.</p>
 .venv/bin/python -m uvicorn app.server:app --port 8710
 open http://localhost:8710</code></pre>
 <p>The default preset is <b>Scripted transcript (demo, no LLM)</b>. It loads
-<code>app/static/transcripts/demo_conversations.json</code> (14 conversations written by Claude Fable 5.1 to exercise every
+<code>examples/regulatory/transcripts/demo_conversations.json</code> (14 conversations written by Claude Fable 5.1 to exercise every
 regime on both speaker sides, plus clean ones), shows a conversation picker, and replays each exchange through the screening
 pipeline with <b>Play next exchange</b> / <b>Play all</b>. Each verdict also shows what the transcript's author expected for
 that turn ("expected Reg BI: agrees", "expected nothing, model said FINRA 2210", or "out of scope for this model" for
@@ -57,8 +57,8 @@ flag form and the scope note adapt automatically.</p>
 
 <h2>1. Where data comes from</h2>
 <p>Every file picker in the UI lists the data already in the project (<code>GET /api/files</code>), grouped by folder:
-<code>data/</code> (your files; empty by default), <code>app/examples/</code>, <code>app/static/transcripts/</code>, datasets curated on
-tab 0 (<code>app/data/curation/</code>), and the regulatory example's splits under <code>regime_clf/</code>. Selecting one loads it
+<code>data/</code> (your files; empty by default), <code>examples/regulatory/samples/</code>, <code>examples/regulatory/transcripts/</code>, datasets curated on
+tab 0 (<code>app/data/curation/</code>), and the regulatory example's splits under <code>examples/regulatory/</code>. Selecting one loads it
 server-side (<code>POST /api/train/use_project_file</code>, <code>GET /api/files/transcript</code>); paths are resolved and must sit inside
 one of those folders. A sibling <code>&lt;name&gt;.spec.json</code> prefills the class table. "Upload from your computer" remains as a
 fallback (browsers cannot point a file dialog at a folder). Files named <code>*.private.*</code> are gitignored.</p>
@@ -99,7 +99,7 @@ model on the job's held-out split and, when the label space is a subset of the s
 macro-F1 drop over 0.01 or per-class recall drop over 0.05 is a regression. Promotion is one click when the gate passes and
 requires a typed reason otherwise (logged to <code>app/data/promotions.jsonl</code>). The registry
 (<code>app/data/models.json</code>) lists every checkpoint with its metrics and gate result; any entry can be activated.</p>
-<p><b>Example data.</b> <code>app/examples/</code> ships <code>regime_5way_sample.csv</code> and <code>regime_7way_sample.csv</code>
+<p><b>Example data.</b> <code>examples/regulatory/samples/</code> ships <code>regime_5way_sample.csv</code> and <code>regime_7way_sample.csv</code>
 (with <code>.spec.json</code> files that prefill the class table) and <code>regime_5way_expert_corrections.csv</code> for the
 post-training step; both tabs list them in a dropdown (<code>GET /api/train/examples</code>, <code>POST /api/train/use_example</code>).
 Add your own by dropping a CSV/JSONL (and optionally a <code>&lt;name&gt;.spec.json</code>) in that folder.</p>
@@ -107,8 +107,8 @@ Add your own by dropping a CSV/JSONL (and optionally a <code>&lt;name&gt;.spec.j
 model called <i>X</i> is v1, later ones <i>X_v2</i>, <i>X_v3</i>, …), <code>parent</code> (the checkpoint it was initialised
 from), metrics, gate result and the training-data path. Activations are appended to <code>app/data/promotions.jsonl</code>.</p>
 <p>Mechanics: <code>app/training.py</code> (uploads, validation, job thread, gate, registry) and
-<code>regime_clf/train_api.py</code> (the training recipe with classes passed as data). Embedding uses the encoder the screener
-already holds, through the shared <code>emb_cache/</code> store, so texts seen before are free and no second Qwen3-8B is loaded.
+<code>engine/trainer.py</code> (the training recipe with classes passed as data). Embedding uses the encoder the screener
+already holds, through the shared <code>cache/embeddings/</code> store, so texts seen before are free and no second Qwen3-8B is loaded.
 One job runs at a time. Activation hot-swaps the heads; the encoder stays loaded.</p>
 
 <h2>2. What happens on a turn</h2>
@@ -133,7 +133,7 @@ replay mode it also sends <code>scripted_reply</code> (the transcript's assistan
 <tr><td><code>app/llm.py</code></td><td>Provider adapters: <code>anthropic</code> (official SDK, server-side refusal fallback on) and <code>openai_compatible</code> (any <code>/chat/completions</code>)</td></tr>
 <tr><td><code>app/config.yaml</code></td><td>Presets, system prompt, screening mode, classifier location, storage paths</td></tr>
 <tr><td><code>app/static/</code></td><td><code>index.html</code>, <code>app.js</code>, <code>styles.css</code>: plain JS, no build step, light and dark themes, phone layout</td></tr>
-<tr><td><code>app/static/transcripts/demo_conversations.json</code></td><td>Bundled demo transcript (Fable-written); <code>app/transcripts/FORMAT.md</code> documents the format</td></tr>
+<tr><td><code>examples/regulatory/transcripts/demo_conversations.json</code></td><td>Bundled demo transcript (Fable-written); <code>app/transcripts/FORMAT.md</code> documents the format</td></tr>
 <tr><td><code>app/mock_llm.py</code></td><td>Offline OpenAI-compatible endpoint for development and tests</td></tr>
 <tr><td><code>app/data/</code></td><td>Runtime output (gitignored): <code>turns.jsonl</code>, <code>feedback.jsonl</code></td></tr>
 </table></div>
@@ -172,7 +172,7 @@ replay mode it also sends <code>scripted_reply</code> (the transcript's assistan
 format, add a branch in <code>llm.chat()</code> and a function returning the reply text; raise <code>LLMError</code> with a
 human-readable message on failure. For Claude, always go through the <code>anthropic</code> SDK.</p>
 <h3>Change what gets screened</h3>
-<p>Speaker-to-class masks live in <code>regime_clf/inference.py</code> (<code>UNIT_CLASSES</code>, filtered to the checkpoint's
+<p>Speaker-to-class masks live in <code>engine/classifier.py</code> (<code>UNIT_CLASSES</code>, filtered to the checkpoint's
 classes at load time); the flag form takes them from <code>/api/config</code>, so there is nothing to keep in sync. Set <code>screening.unit_masking: false</code> to score all
 seven classes for both speakers.</p>
 <h3>Use a GPU encoder</h3>
@@ -189,7 +189,7 @@ The server then loads only the 75 MB heads.</p>
 <h2>7. Testing checklist</h2>
 <ol>
 <li>Start the server; with the default scripted preset, pick a conversation and <b>Play all</b>; every turn should get a verdict and an "expected …" line, and a flagged assistant turn should show the warning chip.</li>
-<li>Upload <code>app/static/transcripts/demo_conversations.json</code> through the file control; the picker should repopulate. Upload a malformed file; the info line should show a readable error.</li>
+<li>Upload <code>examples/regulatory/transcripts/demo_conversations.json</code> through the file control; the picker should repopulate. Upload a malformed file; the info line should show a readable error.</li>
 <li>Start <code>mock_llm</code>; select an OpenAI-compatible preset with the mock URL.</li>
 <li>Send <i>“My advisor sold my bonds without asking. Can you guarantee my new fund won't lose money?”</i>; expect the user message → FINRA 4530 and the reply → FINRA 2210.</li>
 <li>With the 5-way checkpoint, send <i>“Here is my SSN 000-12-3456 for the form.”</i>; expect <b>No flag</b> (out of class). With the 7-way checkpoint, expect Reg S-P.</li>

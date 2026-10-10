@@ -76,7 +76,7 @@ figcaption { font-size: 13px; color: var(--muted); margin-top: 6px; }
 <h1>OOD validation, hard / very_hard difficulty, 7-class (7way) — 2026-10-05</h1>
 <p class="lede">315 messages written by Claude Fable 5.1 to be out of distribution:
 212 hard, 103 very_hard difficulty; axes adversarial_confuser 105, novel_scenario 105, register_shift 105;
-45 per class. Median char-n-gram similarity to the nearest training text: 0.30; max 0.70 (rows ≥ 0.80 are dropped as near-duplicates). Spec: <code>regime_clf/ood/SPEC.md</code>.</p>
+45 per class. Median char-n-gram similarity to the nearest training text: 0.30; max 0.70 (rows ≥ 0.80 are dropped as near-duplicates). Spec: <code>examples/regulatory/ood/SPEC.md</code>.</p>
 <div class="cards">
 <div class="card"><div class="k">Macro-F1 (CLM fine-tuned, unit-masked)</div><div class="v">0.732</div><div class="s">95% CI 0.680–0.778</div></div>
 <div class="card"><div class="k">Accuracy</div><div class="v">74.0%</div><div class="s">315 rows</div></div>
@@ -101,4 +101,4 @@ The linear probe's CI overlaps the CLM heads' CI, so neither is significantly be
 <h2>Files</h2><ul><li><code>metrics.json</code>: all methods, slices, CIs</li>
 <li><code>predictions.jsonl</code>: every row with gold, prediction, Fable's rationale</li>
 <li><code>notes.html</code>: interpretation (optional)</li>
-<li>Data: <code>ood/ood_hard_v1.jsonl</code> (built by <code>regime_clf/ood/build_ood.py</code>)</li></ul></div></body></html>
+<li>Data: <code>ood/ood_hard_v1.jsonl</code> (built by <code>examples/regulatory/ood/build_ood.py</code>)</li></ul></div></body></html>

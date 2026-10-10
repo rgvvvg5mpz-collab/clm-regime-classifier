@@ -24,7 +24,7 @@ TRACKS = {  # class name -> (data dir, file prefix)
 ASSISTANT_TRACKS = {"finra_2210", "reg_bi"}   # these tracks score the assistant's words
 SPLITS = ["train", "val", "test"]
 SPLIT_RANK = {"test": 0, "val": 1, "train": 2}  # a text seen in several splits stays in the held-out one
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tools"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "tools"))
 from name_check import scrub  # noqa: E402
 from classes import DATA_DIR, DROPPED, LABEL_SET, NEGATIVE  # noqa: E402
 

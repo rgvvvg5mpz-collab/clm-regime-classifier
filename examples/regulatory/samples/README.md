@@ -2,7 +2,7 @@
 
 Pick these from the "Use an example dataset" dropdown in the chat UI's **Train** tab (or
 **Post-train** tab for the corrections file). All rows come from the RegModels-derived data in
-`regime_clf/data*/`; the samples are small enough to train in about a minute on a laptop.
+`examples/regulatory/data*/`; the samples are small enough to train in about a minute on a laptop.
 
 | File | Rows | Use |
 |---|---:|---|

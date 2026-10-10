@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Regime Classifier Methodology</title>
+<title>Regulatory Example Methodology</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body><div class="wrap">
@@ -16,14 +16,14 @@
   <a href="../Tests/index.html">Test runs</a>
 </nav>
 
-<h1>Methodology</h1>
+<h1>Methodology: the regulatory example</h1>
 <p class="lede">How the data was built, how CLM-8B was adapted, how the model was evaluated, and what the
 numbers do and don't support.</p>
 
 <h2>1. Task definition</h2>
 <p>Each input is one message from a broker-dealer's GenAI chat channel, written by either the client or the
 assistant. The output is a single label: the regulation regime the message implicates, or the negative class. Two
-label sets are trained (<code>regime_clf/classes.py</code>, selected with <code>REGIME_LABEL_SET</code>): <b>7-way</b>
+label sets are trained (<code>examples/regulatory/classes.py</code>, selected with <code>REGIME_LABEL_SET</code>): <b>7-way</b>
 (<code>compliant</code> + six regimes) and <b>5-way</b> (<code>no_flag</code> + FINRA 2210, Reg BI, FINRA 4530, SEC 17a-3/4).
 In the 5-way set, Reg S-P and Reg S-ID messages are kept as <i>out-of-class samples</i> labelled <code>no_flag</code>, so the
 negative class means “nothing among the covered regimes” rather than “nothing at all”. This replaces RegModels' six per-regime binary/multi-label models with one router. It answers
@@ -37,7 +37,7 @@ Reg S-P and Reg S-ID judge what the <b>client</b> says. This matches how the Reg
 <h3>Source</h3>
 <p>The six RegModels v2 splits in <code>slm-supervisory-suite/data/</code> (24,497 rows: train 19,567 / val 2,429 /
 test 2,501). Every row is synthetic: slot-filled templates plus some LLM augmentation.</p>
-<h3>Label mapping (<code>regime_clf/build_dataset.py</code>)</h3>
+<h3>Label mapping (<code>examples/regulatory/build_dataset.py</code>)</h3>
 <ul>
 <li>A row with any violation or complaint label → its track's class (e.g. any <code>d1*</code>/<code>d2</code>/… label in the 2210 track → <code>finra_2210</code>).</li>
 <li>A row with no labels (each track's negative class: <code>compliant</code>, <code>education_compliant</code>, <code>not_complaint</code>, <code>not_flagged</code>) → the negative class.</li>
@@ -61,7 +61,7 @@ LayerNorm (4096 → 1536 → 1536 → 512). A softmax over the candidates gives 
 <ul>
 <li><b>State text</b>: the message, a blank line, then a fixed question (<code>classes.INSTRUCTIONS</code>). This is the layout CLM's <code>schema.state_text</code> expects.</li>
 <li><b>Candidates</b>: one plain-English description per class (<code>classes.CLASSES</code>), written from the RegModels label definitions and checked against sample rows.</li>
-<li><b>Encoder</b>: CLM's reference stack serves Qwen3-8B through vLLM on CUDA. On Apple Silicon, <code>mps_embedder.py</code> runs Qwen3-8B in-process (bf16, MPS) with the same recipe: raw text, no special tokens, final post-norm hidden state of the last token, L2-normalised.</li>
+<li><b>Encoder</b>: CLM's reference stack serves Qwen3-8B through vLLM on CUDA. On Apple Silicon, <code>engine/encoder.py</code> runs Qwen3-8B in-process (bf16, MPS) with the same recipe: raw text, no special tokens, final post-norm hidden state of the last token, L2-normalised.</li>
 </ul>
 <div class="note"><b>Encoder parity check.</b> Two worked examples from the CLM model card were reproduced on the local
 encoder: “What causes tides?” gives 0.9937 for the correct answer (card: 0.993), and the billing/technical routing
@@ -70,7 +70,7 @@ consistent with bf16-on-MPS vs vLLM numerics.</div>
 
 <h2>4. Training</h2>
 <ul>
-<li>Encoder frozen. All encoder embeddings are computed once and cached (text-keyed float16 store, <code>emb_cache/</code>).</li>
+<li>Encoder frozen. All encoder embeddings are computed once and cached (text-keyed float16 store, <code>cache/embeddings/</code>).</li>
 <li>Both heads and <code>logit_scale</code> are initialised from the published <code>CLM_v0.1-8B.pt</code> and trained with softmax cross-entropy over the 7 candidates. This is the repo's <code>choice --loss softce</code> objective, reimplemented in <code>run_experiment.py</code> so it can train from the cached MPS embeddings.</li>
 <li>AdamW (weight decay 0.01), one-cycle LR, batch 256, 30 epochs. The checkpoint kept is the epoch with the best validation macro-F1.</li>
 <li>Learning-rate sweep {1e-4, 3e-4, 1e-3}, selected on validation only. 7-way: 1e-3 won (val 0.9769, epoch 28); the first 15-epoch run at 1e-4 was undertrained (test 0.877). 5-way: same sweep, 1e-3 won again (val 0.984, epoch 28). The state question is identical for both sets, so the cached encoder embeddings are shared; only the candidate texts differ.</li>
@@ -90,7 +90,7 @@ consistent with bf16-on-MPS vs vLLM numerics.</div>
   <ul><li><i>register_shift</i>: SMS fragments, voice-to-text, non-native English, legal-letter tone, buried signals, bullet/table answers;</li>
   <li><i>adversarial_confuser</i>: compliant text full of trigger vocabulary; boundary cases where one regime dominates; negation, hypotheticals, sarcasm, quoted speech;</li>
   <li><i>novel_scenario</i>: tokenized ETPs, structured notes, annuities, 529/HSA, trusts and POAs, estates, expats, AI-specific failures.</li></ul>
-  Every row carries a one-sentence rationale that names the nearest competing class. The generation spec is <code>regime_clf/ood/SPEC.md</code>.</li>
+  Every row carries a one-sentence rationale that names the nearest competing class. The generation spec is <code>examples/regulatory/ood/SPEC.md</code>.</li>
 <li><b>Out-of-distribution low/medium set</b>: 210 further messages from two more Fable agents, one per difficulty (105 each, 15 per class, spread evenly over the same three axes). <i>Low</i> means the regime is stated almost outright with no competing regime; <i>medium</i> means the signal is clear but implicit (a grievance without the word “complaint”, PII given in passing). Definitions are in <code>SPEC.md</code>. The purpose is to separate <i>distribution shift</i> from <i>inferential difficulty</i>.</li>
 <li><b>OOD integrity checks</b> (<code>ood/build_ood.py</code>): schema, label/speaker consistency, no real firm names, no exact matches with any split, and near-duplicates against train via character 3–5-gram TF-IDF cosine (threshold 0.80). Result: 0 rows dropped from either set; median nearest-train similarity 0.30 (hard) and 0.28 (low/medium); no overlap between the two OOD sets.</li>
 <li><b>Evaluating the 5-way model on the OOD sets</b>: labels outside its set (<code>reg_sp</code>, <code>reg_sid</code>) are mapped to <code>no_flag</code>, so those rows test whether the model stays silent on out-of-class content; <code>evaluate.py</code> also reports accuracy by source label. For a like-for-like comparison the 7-way model's predictions are collapsed the same way.</li>
@@ -121,18 +121,18 @@ consistent with bf16-on-MPS vs vLLM numerics.</div>
 </ul>
 
 <h2>9. Reproducing</h2>
-<pre><code>cd regime_clf
-../.venv/bin/python build_dataset.py                          # data/   (REGIME_LABEL_SET=5way -> data_5way/)
-../.venv/bin/python run_experiment.py --epochs 30 --lr 1e-3 --out ../Tests/&lt;date&gt;_in_distribution/sweep/lr_1e-3
-./sweep.sh ../Tests/&lt;date&gt;_in_distribution/sweep               # full LR sweep
-../.venv/bin/python evaluate.py --data data/test.jsonl --out ../Tests/&lt;date&gt;_in_distribution/eval_test
+<pre><code>cd examples/regulatory
+../../.venv/bin/python build_dataset.py                          # data/   (REGIME_LABEL_SET=5way -> data_5way/)
+../.venv/bin/python run_experiment.py --epochs 30 --lr 1e-3 --out ../../Tests/&lt;date&gt;_in_distribution/sweep/lr_1e-3
+./sweep.sh ../../Tests/&lt;date&gt;_in_distribution/sweep               # full LR sweep
+../.venv/bin/python evaluate.py --data data/test.jsonl --out ../../Tests/&lt;date&gt;_in_distribution/eval_test
 ../.venv/bin/python ood/build_ood.py
-../.venv/bin/python evaluate.py --data ood/ood_hard_v1.jsonl --out ../Tests/&lt;date&gt;_ood_fable_hard
+../.venv/bin/python evaluate.py --data ood/ood_hard_v1.jsonl --out ../../Tests/&lt;date&gt;_ood_fable_hard
 ../.venv/bin/python ood/build_ood.py --parts raw_low.jsonl raw_medium.jsonl --out ood_low_medium_v1.jsonl
-../.venv/bin/python evaluate.py --data ood/ood_low_medium_v1.jsonl --out ../Tests/&lt;date&gt;_ood_fable_low_medium
-../.venv/bin/python zero_shot_variants.py ../Tests/&lt;date&gt;_in_distribution/zero_shot_variants.json
+../.venv/bin/python evaluate.py --data ood/ood_low_medium_v1.jsonl --out ../../Tests/&lt;date&gt;_ood_fable_low_medium
+../.venv/bin/python zero_shot_variants.py ../../Tests/&lt;date&gt;_in_distribution/zero_shot_variants.json
 # 5-way variant: prefix every command with REGIME_LABEL_SET=5way, e.g.
-REGIME_LABEL_SET=5way ./sweep.sh ../Tests/&lt;date&gt;_5way_in_distribution/sweep
-REGIME_LABEL_SET=5way ../.venv/bin/python evaluate.py --data ood/ood_hard_v1.jsonl --out ../Tests/&lt;date&gt;_5way_ood_fable_hard
+REGIME_LABEL_SET=5way ./sweep.sh ../../Tests/&lt;date&gt;_5way_in_distribution/sweep
+REGIME_LABEL_SET=5way ../.venv/bin/python evaluate.py --data ood/ood_hard_v1.jsonl --out ../../Tests/&lt;date&gt;_5way_ood_fable_hard
 cd .. &amp;&amp; .venv/bin/python Tests/make_reports.py</code></pre>
 </div></body></html>

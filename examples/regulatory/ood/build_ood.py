@@ -18,9 +18,8 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
-from classes import LABELS  # noqa: E402
-from inference import UNIT_CLASSES  # noqa: E402
-sys.path.insert(0, os.path.join(os.path.dirname(HERE), "..", "tools"))
+from classes import LABELS, UNIT_CLASSES  # noqa: E402
+sys.path.insert(0, os.path.join(os.path.dirname(HERE), "..", "..", "tools"))
 from name_check import scrub  # noqa: E402
 
 HARD_PARTS = ["raw_adversarial_confuser.jsonl", "raw_novel_scenario.jsonl", "raw_register_shift.jsonl"]
@@ -40,7 +39,7 @@ def main():
             r = json.loads(line)
             assert set(r) == KEYS, f"{f}:{i} keys {set(r)}"
             assert r["label"] in LABELS, f"{f}:{i} label {r['label']}"
-            assert r["label"] in UNIT_CLASSES[r["unit"]], f"{f}:{i} label/unit mismatch"
+            assert r["label"] == LABELS[0] or r["label"] in UNIT_CLASSES[r["unit"]], f"{f}:{i} label/unit mismatch"
             assert scrub(r["text"]) == r["text"], f"{f}:{i} contains a blocked real firm name"
             rows.append(r)
     seen, uniq = set(), []

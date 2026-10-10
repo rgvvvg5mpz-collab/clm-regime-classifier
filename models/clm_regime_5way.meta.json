@@ -1,0 +1,22 @@
+{
+  "names": {
+    "no_flag": "No flag",
+    "finra_2210": "FINRA Rule 2210 (communications)",
+    "reg_bi": "Regulation Best Interest",
+    "finra_4530": "FINRA Rule 4530 (customer complaint)",
+    "sec_17a3_17a4": "SEC 17a-3/17a-4 (books & records)"
+  },
+  "unit_classes": {
+    "client_message": [
+      "finra_4530",
+      "sec_17a3_17a4"
+    ],
+    "assistant_response": [
+      "finra_2210",
+      "reg_bi"
+    ]
+  },
+  "release": "v1.1",
+  "example": "regulatory",
+  "train_data": "examples/regulatory/data_5way"
+}

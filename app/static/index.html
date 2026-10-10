@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>System 1 Workbench</title>
-  <link rel="stylesheet" href="/static/styles.css?v=15">
+  <title>CLASP</title>
+  <link rel="stylesheet" href="/static/styles.css?v=16">
 </head>
 <body>
 <header class="topbar">
-  <div class="logo" data-tip="A workbench for System 1 classifiers trained with a contrastive loss (CLM-8B heads on a frozen Qwen3-8B encoder). The regulatory regime screener is the worked example; train your own classes from any labelled text."><span class="mark">S1</span> System 1 Workbench <span class="tagline">contrastive-loss classifiers</span></div>
+  <div class="logo" data-tip="CLASP: Contrastive Labelling And System-1 Prediction. A workbench for fast text classifiers: small contrastive heads (CLM-8B) on a frozen Qwen3-8B encoder. The regulatory regime screener is the shipped worked example; train your own classes from any labelled text."><span class="mark">C</span> CLASP <span class="tagline">Contrastive Labelling And System-1 Prediction</span></div>
   <nav class="flow" aria-label="Exercise steps">
     <button type="button" data-view="curateView" data-tip="Step 0 (optional): prompt Claude Code to research a topic and write a labelled dataset for you."><span class="num">0</span>Curate</button>
     <span class="sep">›</span>
@@ -34,15 +34,15 @@
     </select>
 
     <div id="transcriptPanel" class="subpanel">
+      <label>Transcript file <i class="info" data-tip="Scripted conversations in the project (the regulatory example's demo, plus any .json you put in data/), in the format of app/transcripts/FORMAT.md. Upload one from your computer below.">i</i>
+        <select id="transcriptFile"></select>
+      </label>
       <p class="muted small" id="transcriptInfo">Loading transcript…</p>
       <label>Conversation <i class="info" data-tip="Each conversation is replayed one exchange at a time. The count shows how many turns the transcript's author expects to be flagged with some class; 'clean' ones should produce none.">i</i>
         <select id="conv"></select>
       </label>
       <p class="muted small" id="scenario"></p>
-      <label>Transcript file <i class="info" data-tip="Transcripts in the project (app/static/transcripts/ and any .json in data/), in the format of app/transcripts/FORMAT.md.">i</i>
-        <select id="transcriptFile"></select>
-      </label>
-      <details class="local"><summary class="small">or upload from your computer</summary>
+      <details class="local"><summary class="small">or upload a transcript from your computer</summary>
         <input id="upload" type="file" accept=".json,application/json"></details>
     </div>
 
@@ -157,7 +157,8 @@
         <div class="step" id="t-step2" hidden><h3><span class="n">2</span>Define the classes <i class="info" data-tip="One row per label found in the data. The description is part of the model: it is the text each input is scored against, so it should define the class in plain words. Speaker limits which classes a user or assistant turn can receive (leave 'either' for non-conversational data). Exactly one class must be the negative ('none of the above') class.">i</i></h3>
           <p class="muted small">The description is what the model scores each text against (contrastive scoring: the class whose description is closest wins). Write it as one plain sentence that defines the class.</p>
           <div class="scroll"><table id="classSpec"></table></div>
-          <label>Model name <i class="info" data-tip="Used for the checkpoint file and the registry. Re-using a name creates the next version (v2, v3, …).">i</i><input id="trainName" placeholder="e.g. my_regimes_v1"></label></div>
+          <label>Question <i class="info" data-tip="Appended to every input before it is encoded (CLM scores 'text + question' against each class description). The generic default works for most tasks; a task-specific question can help. Examples with a .spec.json bring their own.">i</i><input id="trainQuestion"></label>
+          <label>Model name <i class="info" data-tip="Used for the checkpoint file and the registry. Re-using a name creates the next version (v2, v3, …).">i</i><input id="trainName" placeholder="e.g. support_triage"></label></div>
         <div class="step" id="t-step3" hidden><h3><span class="n">3</span>Validate <i class="info" data-tip="Checks labels against the class table, per-class minimums (10 rows), duplicates and conflicting labels, blocked names (replaced automatically), speaker / label consistency and imbalance, then assigns a stratified 80 / 10 / 10 split unless the file has one.">i</i></h3>
           <button id="trainValidate" type="button">Validate data</button>
           <div id="trainValidation" class="small"></div></div>
@@ -244,8 +245,8 @@
     </div>
   </form>
 </template>
-<script src="/static/app.js?v=15"></script>
-<script src="/static/train.js?v=9"></script>
+<script src="/static/app.js?v=17"></script>
+<script src="/static/train.js?v=10"></script>
 <script src="/static/curate.js?v=1"></script>
 </body>
 </html>

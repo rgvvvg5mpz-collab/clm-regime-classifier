@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Developer Handoff Guide</title>
+<title>CLASP Developer Guide</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body><div class="wrap">
@@ -28,54 +28,52 @@ and what to do next, in priority order.</p>
 <tr><td>Fine-tuned CLM heads, 7-way</td><td><span class="pill good">done</span></td><td>0.977 in-dist / 0.732 OOD hard / 0.748 OOD low-medium macro-F1; release v1.0 <code>clm_regime_7way.pt</code></td></tr>
 <tr><td>Fine-tuned CLM heads, 5-way (no S-P / S-ID; out-of-class → no flag)</td><td><span class="pill good">done</span></td><td>0.983 / 0.800 / 0.830; release v1.1 <code>clm_regime_5way.pt</code>; UI default</td></tr>
 <tr><td>OOD sets (Fable 5.1)</td><td><span class="pill good">done</span></td><td>hard/very-hard 315 rows + low/medium 210 rows; labels not SME-adjudicated</td></tr>
-<tr><td>Inference pipeline (API + CLI)</td><td><span class="pill good">done</span></td><td><code>regime_clf/inference.py</code></td></tr>
+<tr><td>Inference pipeline (API + CLI)</td><td><span class="pill good">done</span></td><td><code>engine/classifier.py</code></td></tr>
 <tr><td>Chat UI + FP/FN flagging</td><td><span class="pill good">done</span></td><td>Tested end to end with the mock LLM; not yet with a live Claude key</td></tr>
 <tr><td>Automated tests / CI</td><td><span class="pill warn">not started</span></td><td>Only recorded runs in <code>Tests/</code>; see improvements</td></tr>
 <tr><td>Feedback → retraining loop</td><td><span class="pill warn">not started</span></td><td>Flags are captured but not yet consumed</td></tr>
 </table></div>
 
 <h2>2. Setup</h2>
-<pre><code>git clone https://github.com/rgvvvg5mpz-collab/clm-regime-classifier.git
-cd clm-regime-classifier
-python3 -m venv .venv &amp;&amp; .venv/bin/pip install -r requirements.txt
-git clone https://github.com/Contrastive-LM/CLM.git &amp;&amp; .venv/bin/pip install --no-deps -e CLM   # --no-deps: skips vLLM on macOS
-.venv/bin/clm-download                                          # reference heads -> ~/.cache/clm/
-gh release download v1.1 -p clm_regime_5way.pt -D regime_clf/checkpoints   # 5-way, UI default
-gh release download v1.0 -p clm_regime_7way.pt -D regime_clf/checkpoints   # 7-way
-# Qwen3-8B (~16 GB) downloads to ~/.cache/huggingface on first use</code></pre>
-<p><b>Label sets.</b> <code>REGIME_LABEL_SET=7way</code> (default) or <code>5way</code> selects the class list, data directory
-(<code>data/</code> vs <code>data_5way/</code>) and checkpoint name for every script in <code>regime_clf/</code>. Checkpoints carry their own
-class list, so <code>inference.py</code> and the chat UI adapt to whichever file they load.</p>
-<p>On a CUDA box you can install CLM with its dependencies (<code>pip install -e CLM</code>), serve the encoder with
-vLLM, and pass <code>--emb-url http://host:8090/v1/embeddings</code> everywhere instead of loading Qwen3-8B in-process.</p>
+<pre><code>git clone https://github.com/rgvvvg5mpz-collab/clm-regime-classifier.git &amp;&amp; cd clm-regime-classifier
+scripts/setup.sh            # .venv + requirements, CLM into third_party/, reference heads, shipped models, Qwen3-8B
+scripts/run_ui.sh           # http://localhost:8710 (runs setup itself if needed)</code></pre>
+<p>Everything is idempotent. <code>setup.sh --skip-encoder</code> defers the 16 GB encoder download to first use. On a CUDA box
+the in-process encoder uses the GPU automatically (<code>engine/paths.device()</code>); alternatively serve the encoder with
+<code>vllm serve Qwen/Qwen3-8B --runner pooling</code> and set <code>classifier.emb_url</code> in <code>app/config.yaml</code>.
+Locations can be overridden with <code>CLASP_MODELS_DIR</code>, <code>CLASP_CACHE_DIR</code>, <code>CLASP_DEVICE</code>.</p>
 
 <h2>3. Everyday commands</h2>
-<pre><code>cd regime_clf
-../.venv/bin/python inference.py "text" --unit client_message           # one prediction
-../.venv/bin/python inference.py --jsonl in.jsonl --out preds.jsonl      # batch
-../.venv/bin/python evaluate.py --data &lt;labelled.jsonl&gt; --out ../Tests/&lt;YYYY-MM-DD&gt;_&lt;name&gt;
-../.venv/bin/python run_experiment.py --epochs 30 --lr 1e-3 --out ../Tests/&lt;date&gt;_train/run
-cd .. &amp;&amp; .venv/bin/python Tests/make_reports.py                           # refresh all report.html
-.venv/bin/python -m uvicorn app.server:app --port 8710                   # chat UI</code></pre>
+<pre><code>scripts/run_ui.sh [--port 8800] [--mock-curation]                       # the workbench
+.venv/bin/python -m engine.classifier --checkpoint models/&lt;m&gt;.pt "text"   # one prediction (or --jsonl in --out out)
+.venv/bin/python Tests/make_reports.py                                   # refresh every report.html, index, METRICS.md
+.venv/bin/python tools/name_check.py                                     # must be 0 hits before pushing
+
+cd examples/regulatory                                                   # the worked example's research scripts
+../../.venv/bin/python build_dataset.py                                  # REGIME_LABEL_SET=5way for the 5-way set
+../../.venv/bin/python run_experiment.py --epochs 30 --lr 1e-3 --out ../../Tests/&lt;date&gt;_x/run
+../../.venv/bin/python evaluate.py --data ood/ood_hard_v1.jsonl --out ../../Tests/&lt;date&gt;_ood</code></pre>
 
 <h2>4. Code map</h2>
 <div class="scroll"><table>
 <tr><th>File</th><th>Read it when you…</th></tr>
-<tr><td><code>regime_clf/classes.py</code></td><td>change class wording or add a label set. <b>Changing a class text changes the candidate embeddings: retrain afterwards.</b> Keep <code>INSTRUCTIONS</code> identical across label sets so the 24.5k cached state embeddings stay valid.</td></tr>
-<tr><td><code>regime_clf/build_dataset.py</code></td><td>add a track, change the mapping, or add scrub rules</td></tr>
-<tr><td><code>regime_clf/mps_embedder.py</code></td><td>touch encoding, caching, batch size or device</td></tr>
-<tr><td><code>regime_clf/run_experiment.py</code></td><td>change training (loss, optimiser, epochs) or baselines</td></tr>
-<tr><td><code>regime_clf/evaluate.py</code></td><td>add metrics or slices</td></tr>
-<tr><td><code>regime_clf/inference.py</code></td><td>change the production contract (<code>Prediction</code>, speaker masks)</td></tr>
-<tr><td><code>regime_clf/ood/</code></td><td>extend an OOD set (<code>SPEC.md</code> → new <code>raw_*.jsonl</code> → <code>build_ood.py --parts … --out …</code>)</td></tr>
-<tr><td><code>app/</code></td><td>work on the UI; see <a href="../app/DEV_README.html">its dev README</a></td></tr>
+<tr><td><code>engine/paths.py</code></td><td>need a location (models, cache, reference heads), the default question, or the device choice</td></tr>
+<tr><td><code>engine/encoder.py</code></td><td>touch encoding, the embedding store, batch size or device</td></tr>
+<tr><td><code>engine/trainer.py</code></td><td>change the training recipe (contrastive softmax-CE over class descriptions), metrics or the probe</td></tr>
+<tr><td><code>engine/classifier.py</code></td><td>change the inference contract (<code>Prediction</code>, speaker masks, <code>.meta.json</code> sidecars)</td></tr>
+<tr><td><code>app/server.py</code></td><td>add an API route; background model loading; model hot-swap</td></tr>
+<tr><td><code>app/training.py</code></td><td>change uploads, validation, training jobs, the promotion gate, the registry or the Project data folders</td></tr>
+<tr><td><code>app/curation.py</code></td><td>change how Claude Code is run for the Data curation tab (tools, contract, budget)</td></tr>
+<tr><td><code>app/static/*.js</code></td><td>work on the UI (<code>app.js</code> chat + shared, <code>train.js</code>, <code>curate.js</code>); see the <a href="../app/DEV_README.html">UI dev README</a></td></tr>
+<tr><td><code>examples/regulatory/classes.py</code></td><td>change the example's label sets or class wording (<b>retrain afterwards</b>)</td></tr>
+<tr><td><code>examples/regulatory/ood/</code></td><td>extend an OOD set (<code>SPEC.md</code> → new <code>raw_*.jsonl</code> → <code>build_ood.py --parts … --out …</code>)</td></tr>
 </table></div>
 
 <h2>5. Gotchas</h2>
 <ul>
 <li><b>Memory</b>: one Qwen3-8B per 24 GB Mac. Stop the UI server before running <code>evaluate.py</code>, or you'll swap heavily.</li>
-<li><b>Embedding cache</b>: <code>regime_clf/emb_cache/store.npy</code> (~200 MB, gitignored) is keyed by the exact state text (message + instruction). Changing <code>INSTRUCTIONS</code> invalidates every entry and costs ~18 min to rebuild on an M5 Pro. Changing <code>CLASSES</code> only re-embeds 7 texts, but needs retraining.</li>
-<li><b>Checkpoints carry their own class text</b>: <code>clm_regime_7way.pt</code> stores <code>classes</code> and <code>instructions</code>, and <code>inference.py</code> uses those, not <code>classes.py</code>. That stops a wording edit from silently mismatching a deployed checkpoint.</li>
+<li><b>Embedding cache</b>: <code>cache/embeddings/store.npy</code> (~200 MB, gitignored) is keyed by the exact state text (message + instruction). Changing <code>INSTRUCTIONS</code> invalidates every entry and costs ~18 min to rebuild on an M5 Pro. Changing <code>CLASSES</code> only re-embeds 7 texts, but needs retraining.</li>
+<li><b>Checkpoints carry their own class text</b>: <code>clm_regime_7way.pt</code> stores <code>classes</code> and <code>instructions</code>, and <code>engine/classifier.py</code> uses those, not <code>classes.py</code>. That stops a wording edit from silently mismatching a deployed checkpoint.</li>
 <li><b>Don't measure similarity on raw encoder embeddings</b>: they are extremely anisotropic (cos ≈ 0.997 between unrelated messages). Use the projected head space, or lexical TF-IDF for deduplication.</li>
 <li><b>Python 3.14</b> works with torch 2.14 / transformers 5.18. vLLM isn't installed on macOS (<code>--no-deps</code>).</li>
 <li><b>transformers 5</b> prints an "UNEXPECTED lm_head.weight" load report for <code>AutoModel</code>. That's expected (we load the base model, not the LM head).</li>

@@ -1,12 +1,12 @@
 # environments and external code
 .venv/
-CLM/
+third_party/
 __pycache__/
 *.pyc
 .DS_Store
 
 # large / regenerable artefacts
-regime_clf/emb_cache/
+cache/
 *.pt
 *.npy
 

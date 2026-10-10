@@ -34,7 +34,7 @@
   }
 
   // ---------------------------------------------------------------- Train tab
-  async function loadExamples() {   // "Project data" pickers: files in data/, app/examples/, curated runs, example splits
+  async function loadExamples() {   // "Project data" pickers: files in data/, examples/regulatory/samples/, curated runs, example splits
     try {
       const files = (await api("/api/files")).filter((f) => f.kind === "rows");
       [["trainExample", (f) => !f.expert], ["postExample", (f) => f.expert || f.group.startsWith("Your data") || f.group.startsWith("Curated")]].forEach(([id, keep]) => {
@@ -69,6 +69,7 @@
         el("div", "muted", Object.entries(u.labels).map(([l, n]) => `${l}: ${n}`).join(" · ")));
       buildSpec(u);
       if (u.spec) applySpec(u.spec);
+      $("trainQuestion").value = u.instructions || (typeof state !== "undefined" && state.config && state.config.generic_instructions) || "";
       $("t-step2").hidden = false; $("t-step3").hidden = false; $("t-step4").hidden = true; $("t-step5").hidden = true;
       $("t-step1").classList.add("done"); ["t-step2", "t-step3", "t-step4", "t-step5"].forEach((i) => $(i).classList.remove("done"));
       $("trainName").value = nameHint.replace(/\.[^.]+$/, "").replace(/_sample$/, "").replace(/[^A-Za-z0-9_-]+/g, "_").slice(0, 30);
@@ -114,7 +115,7 @@
     if (!T.upload) return;
     $("trainValidation").textContent = "Validating…";
     try {
-      const v = await api("/api/train/validate", { upload_id: T.upload.upload_id, spec: readSpec() });
+      const v = await api("/api/train/validate", { upload_id: T.upload.upload_id, spec: readSpec(), instructions: $("trainQuestion").value });
       issues($("trainValidation"), v);
       T.validated = v.ok; $("t-step4").hidden = !v.ok; $("t-step2").classList.toggle("done", v.ok); $("t-step3").classList.toggle("done", v.ok);
     } catch (e) { $("trainValidation").textContent = "Validation failed: " + e.message; }

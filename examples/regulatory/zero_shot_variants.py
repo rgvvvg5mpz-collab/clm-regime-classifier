@@ -16,7 +16,7 @@ from classes import CLASSES, INSTRUCTIONS, LABEL_SET, LABELS
 
 assert LABEL_SET == "7way", "the hand-written candidate variants below are for the 7-way label set"
 from clm.schema import state_text
-from mps_embedder import MPSEmbedder, embed_cached
+from engine.encoder import MPSEmbedder, embed_cached
 from run_experiment import REF_CKPT, clm_logits, load_heads
 
 VARIANTS = {

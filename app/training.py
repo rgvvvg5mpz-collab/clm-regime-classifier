@@ -9,7 +9,7 @@ holds, so training never loads a second Qwen3-8B.
 Data flow
   upload  -> app/data/uploads/<upload_id>/{raw.<ext>, rows.jsonl, summary.json}
   validate-> app/data/uploads/<upload_id>/clean.jsonl (scrubbed, deduped, split assigned)
-  train   -> regime_clf/checkpoints/<name>.pt + Tests/<date>_ui_<name>/ + registry entry
+  train   -> models/<name>.pt (+ .meta.json) + Tests/<date>_ui_<name>/ + registry entry
 """
 from __future__ import annotations
 
@@ -29,22 +29,25 @@ import uuid
 import numpy as np
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(ROOT, "regime_clf"))
+sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 
-from classes import INSTRUCTIONS, LABEL_SETS  # noqa: E402
 from clm.schema import state_text  # noqa: E402
-from mps_embedder import embed_cached  # noqa: E402
+from engine.classifier import read_meta, write_meta  # noqa: E402
+from engine.encoder import embed_cached  # noqa: E402
+from engine.paths import GENERIC_INSTRUCTIONS, MODELS_DIR  # noqa: E402
 from name_check import scrub  # noqa: E402
+# Hooks for the shipped regulatory example: its label set (to decide when the OOD sets apply to a gate).
+from examples.regulatory.classes import LABEL_SETS as EXAMPLE_LABEL_SETS  # noqa: E402
 
 UPLOADS = os.path.join(ROOT, "app", "data", "uploads")
-EXAMPLES = os.path.join(ROOT, "app", "examples")
+EXAMPLES = os.path.join(ROOT, "examples", "regulatory", "samples")
 REGISTRY = os.path.join(ROOT, "app", "data", "models.json")
 FEEDBACK = os.path.join(ROOT, "app", "data", "feedback.jsonl")
-CKPT_DIR = os.path.join(ROOT, "regime_clf", "checkpoints")
+CKPT_DIR = MODELS_DIR
 TESTS = os.path.join(ROOT, "Tests")
-OOD_FILES = {"ood_hard": os.path.join(ROOT, "regime_clf", "ood", "ood_hard_v1.jsonl"),
-             "ood_low_medium": os.path.join(ROOT, "regime_clf", "ood", "ood_low_medium_v1.jsonl")}
+OOD_FILES = {"ood_hard": os.path.join(ROOT, "examples", "regulatory", "ood", "ood_hard_v1.jsonl"),
+             "ood_low_medium": os.path.join(ROOT, "examples", "regulatory", "ood", "ood_low_medium_v1.jsonl")}
 NEGATIVE_ALIASES = {"compliant", "no_flag", "none", "no_issue", "ok", "negative", "clean", "not_flagged", "nothing"}
 SPEAKER_ALIASES = {"client": "client_message", "user": "client_message", "customer": "client_message",
                    "client_message": "client_message", "assistant": "assistant_response", "bot": "assistant_response",
@@ -114,12 +117,13 @@ def parse_upload(filename: str, data: bytes) -> dict:
 
 
 # Folders the "Project data" pickers list, in display order: (relative path, group label, recursive)
-PROJECT_DATA = [("data", "Your data (data/)", True), ("app/examples", "Examples (app/examples/)", False),
-                ("app/static/transcripts", "Chat transcripts (app/static/transcripts/)", False),
+PROJECT_DATA = [("data", "Your data (data/)", True),
                 ("app/data/curation", "Curated by Claude Code (app/data/curation/)", True),
-                ("regime_clf/data_5way", "Regulatory example, 5-way (regime_clf/data_5way/)", False),
-                ("regime_clf/data", "Regulatory example, 7-way (regime_clf/data/)", False),
-                ("regime_clf/ood", "Regulatory example, OOD sets (regime_clf/ood/)", False)]
+                ("examples/regulatory/samples", "Regulatory example: samples", False),
+                ("examples/regulatory/transcripts", "Regulatory example: chat transcripts", False),
+                ("examples/regulatory/data_5way", "Regulatory example: full 5-way splits", False),
+                ("examples/regulatory/data", "Regulatory example: full 7-way splits", False),
+                ("examples/regulatory/ood", "Regulatory example: OOD sets", False)]
 DATA_EXT = (".csv", ".jsonl", ".json")
 
 
@@ -164,7 +168,9 @@ def use_project_file(rel: str) -> dict:
     summary = parse_upload(os.path.basename(p), open(p, "rb").read())
     spec_p = os.path.splitext(p)[0] + ".spec.json"
     if os.path.exists(spec_p):
-        summary["spec"] = json.load(open(spec_p))["spec"]
+        sj = json.load(open(spec_p))
+        summary["spec"] = sj["spec"]
+        summary["instructions"] = sj.get("instructions")
     summary["example"] = os.path.basename(p)
     return summary
 
@@ -195,7 +201,9 @@ def use_example(name: str) -> dict:
     summary = parse_upload(name, open(os.path.join(EXAMPLES, name), "rb").read())
     spec_p = os.path.join(EXAMPLES, os.path.splitext(name)[0] + ".spec.json")
     if os.path.exists(spec_p):
-        summary["spec"] = json.load(open(spec_p))["spec"]
+        sj = json.load(open(spec_p))
+        summary["spec"] = sj["spec"]
+        summary["instructions"] = sj.get("instructions")
     summary["example"] = name
     return summary
 
@@ -238,7 +246,7 @@ def normalise_spec(spec: dict) -> tuple[dict[str, str], dict[str, str], str, dic
     return classes, names, neg, unit_classes
 
 
-def validate(upload_id: str, spec: dict, seed: int = 20933, expert: bool = False) -> dict:
+def validate(upload_id: str, spec: dict, seed: int = 20933, expert: bool = False, instructions: str | None = None) -> dict:
     """``expert=True`` validates a small set of corrections for post-training: no per-class
     minimums, no negative-share warning, and no held-out split (the job splits them itself)."""
     rows = _rows(upload_id)
@@ -327,26 +335,44 @@ def validate(upload_id: str, spec: dict, seed: int = 20933, expert: bool = False
         for r in rows:
             f.write(json.dumps(r) + "\n")
     split_counts = {s: dict(collections.Counter(r["label"] for r in rows if r["split"] == s)) for s in ("train", "val", "test")}
-    json.dump({"spec": spec, "classes": classes, "names": names, "negative": neg, "unit_classes": unit_classes},
+    json.dump({"spec": spec, "classes": classes, "names": names, "negative": neg, "unit_classes": unit_classes,
+               "instructions": (instructions or "").strip() or GENERIC_INSTRUCTIONS},
               open(os.path.join(UPLOADS, upload_id, "spec.json"), "w"), indent=2)
     return {"ok": True, "errors": [], "warnings": warnings, "counts": dict(counts), "n_clean": len(rows),
             "split_source": src, "split_counts": split_counts, "unit_classes": unit_classes, "negative": neg}
 
 
 # ------------------------------------------------------------------ registry
+_OLD_PATHS = [("regime_clf/checkpoints/", "models/"), ("regime_clf/", "examples/regulatory/")]   # pre-0.2 layout
+
+
 def registry() -> list[dict]:
+    """All checkpoints the UI can select. Created on first use from the shipped models found in
+    models/ (their .meta.json sidecars hold names, speaker masks and training data)."""
     if os.path.exists(REGISTRY):
-        return json.load(open(REGISTRY))
+        raw = open(REGISTRY).read()
+        fixed = raw
+        for a, b in _OLD_PATHS:
+            fixed = fixed.replace(a, b)
+        entries = json.loads(fixed)
+        entries = [e for e in entries if os.path.exists(os.path.join(ROOT, e["checkpoint"]))] or entries
+        if fixed != raw:
+            _save_registry(entries)
+        return entries
+    import torch
     shipped = []
-    for name, ls, data in (("clm_regime_7way", "7way", "data"), ("clm_regime_5way", "5way", "data_5way")):
+    for name in ("clm_regime_5way", "clm_regime_7way"):
         p = os.path.join(CKPT_DIR, name + ".pt")
         if os.path.exists(p):
-            classes = LABEL_SETS[ls]
+            meta = read_meta(p)
+            classes = dict(torch.load(p, map_location="cpu")["classes"])
             shipped.append({"name": name, "base_name": name, "version": 1, "parent": "CLM_v0.1-8B.pt (reference heads)",
                             "checkpoint": os.path.relpath(p, ROOT), "created": os.path.getmtime(p),
-                            "labels": list(classes), "classes": classes, "source": "shipped (release)",
-                            "train_data": os.path.join("regime_clf", data), "unit_classes": None, "metrics": {}})
-    _save_registry(shipped)
+                            "labels": list(classes), "classes": classes, "names": meta.get("names"),
+                            "source": f"shipped example (release {meta.get('release', '')})".replace(" )", ")"),
+                            "train_data": meta.get("train_data"), "unit_classes": meta.get("unit_classes"), "metrics": {}})
+    if shipped:
+        _save_registry(shipped)
     return shipped
 
 
@@ -462,8 +488,8 @@ def _run(j: dict, embedder, active_ckpt: str | None) -> None:
         _running.clear()
 
 
-def _load_training_rows(req: dict, active_ckpt: str | None) -> tuple[list[dict], dict, dict, str, dict, list[str]]:
-    """-> rows (with split), classes, names, negative, unit_classes, notes."""
+def _load_training_rows(req: dict, active_ckpt: str | None) -> tuple[list[dict], dict, dict, str, dict, list[str], str]:
+    """-> rows (with split), classes, names, negative, unit_classes, notes, instructions."""
     notes = []
     if req.get("post_train"):
         import torch
@@ -473,11 +499,10 @@ def _load_training_rows(req: dict, active_ckpt: str | None) -> tuple[list[dict],
         ck = torch.load(os.path.join(ROOT, base) if not os.path.isabs(base) else base, map_location="cpu")
         classes = dict(ck["classes"]); labels = list(classes); neg = labels[0]
         entry = registry_entry_for(base) or {}
-        names = entry.get("names") or {l: l for l in labels}
-        unit_classes = entry.get("unit_classes")
-        if unit_classes is None:   # shipped models: derive from inference.UNIT_CLASSES
-            from inference import UNIT_CLASSES
-            unit_classes = {u: [l for l in ls if l in classes] for u, ls in UNIT_CLASSES.items()}
+        meta = read_meta(os.path.join(ROOT, base))
+        names = entry.get("names") or meta.get("names") or {l: l for l in labels}
+        unit_classes = entry.get("unit_classes") or meta.get("unit_classes") or {u: labels[1:] for u in ("client_message", "assistant_response")}
+        instructions = ck.get("instructions") or GENERIC_INSTRUCTIONS
         rows = []
         if req.get("include_base_data", True) and entry.get("train_data"):
             td = os.path.join(ROOT, entry["train_data"])
@@ -516,20 +541,22 @@ def _load_training_rows(req: dict, active_ckpt: str | None) -> tuple[list[dict],
         rows += [dict(r) for r in expert if r["split"] == "train" for _ in range(k)]
         notes.append(f"expert train rows oversampled x{k}; {len(expert) - nv} train / {nv} val; "
                      f"{len([e for e in expert if e['text'] in base_texts])} replaced base rows")
-        return rows, classes, names, neg, unit_classes, notes
+        return rows, classes, names, neg, unit_classes, notes, instructions
     spec = json.load(open(os.path.join(UPLOADS, req["upload_id"], "spec.json")))
     rows = [{**r, "source": "upload"} for r in _rows(req["upload_id"], "clean.jsonl")]
-    return rows, spec["classes"], spec["names"], spec["negative"], spec["unit_classes"], notes
+    return (rows, spec["classes"], spec["names"], spec["negative"], spec["unit_classes"], notes,
+            spec.get("instructions") or GENERIC_INSTRUCTIONS)
 
 
 def _run_inner(j: dict, enc, active_ckpt: str | None) -> None:
-    from train_api import REF_CKPT, fit_probe, mask_probs, metrics, predict_ckpt, train_heads
+    from engine.trainer import REF_CKPT, fit_probe, mask_probs, metrics, predict_ckpt, train_heads
     req = j["request"]
     base_name = slug(req.get("name") or ("post_" if req.get("post_train") else "model_") + time.strftime("%m%d_%H%M"))
     name, version = next_version(base_name)
     j["stage"] = "loading data"
-    rows, classes, names, neg, unit_classes, notes = _load_training_rows(req, active_ckpt)
+    rows, classes, names, neg, unit_classes, notes, instr = _load_training_rows(req, active_ckpt)
     labels = list(classes)
+    _log(j, f"question appended to every input: \"{instr}\"")
     for n in notes:
         _log(j, n)
     splits = {s: [r for r in rows if r["split"] == s] for s in ("train", "val", "test")}
@@ -541,11 +568,11 @@ def _run_inner(j: dict, enc, active_ckpt: str | None) -> None:
     _log(j, f"rows: train {len(splits['train'])}, val {len(splits['val'])}, test {len(splits['test'])}; classes: {labels}")
 
     j["stage"] = "embedding"
-    uniq = list(dict.fromkeys(state_text(r["text"], INSTRUCTIONS) for s in splits.values() for r in s))
+    uniq = list(dict.fromkeys(state_text(r["text"], instr) for s in splits.values() for r in s))
     _log(j, f"embedding {len(uniq)} distinct texts (cached ones are free)")
     E = _embed(j, enc, uniq, "ui_train")
     idx = {t: i for i, t in enumerate(uniq)}
-    X = {s: E[[idx[state_text(r["text"], INSTRUCTIONS)] for r in rs]] for s, rs in splits.items()}
+    X = {s: E[[idx[state_text(r["text"], instr)] for r in rs]] for s, rs in splits.items()}
     y = {s: np.array([labels.index(r["label"]) for r in rs]) for s, rs in splits.items()}
     C = _embed(j, enc, list(classes.values()), "ui_candidates")
 
@@ -560,8 +587,9 @@ def _run_inner(j: dict, enc, active_ckpt: str | None) -> None:
     out_ckpt = os.path.join(CKPT_DIR, name + ".pt")
     def prog(ep, eps, loss, f1):
         j["progress"] = {"stage": "training", "epoch": ep, "epochs": eps, "loss": round(loss, 4), "val_macro_f1": round(f1, 4)}
-    hist = train_heads(X, y, C, classes, INSTRUCTIONS, out_ckpt, init_ckpt=init_ckpt,
+    hist = train_heads(X, y, C, classes, instr, out_ckpt, init_ckpt=init_ckpt,
                        epochs=epochs, lr=float(req.get("lr", 1e-3)), batch=batch, progress=prog)
+    write_meta(out_ckpt, names, unit_classes, train_data=None)
     best = max(hist, key=lambda h: h["val_macro_f1"])
     _log(j, f"best validation macro-F1 {best['val_macro_f1']:.4f} at epoch {best['epoch']}")
 
@@ -592,21 +620,24 @@ def _run_inner(j: dict, enc, active_ckpt: str | None) -> None:
         if set(a_labels) == set(labels) and a_labels[0] == labels[0]:
             j["stage"] = "gate"
             Ca = _embed(j, enc, list(ack["classes"].values()), "ui_candidates")
+            a_instr = ack.get("instructions") or GENERIC_INSTRUCTIONS
             a_unit = {u: [l for l in ls if l in a_labels] for u, ls in unit_classes.items()}
             remap = np.array([labels.index(l) for l in a_labels])   # active-order index -> candidate-order index
-            def active_pred(Xs, us):
-                pa = mask_probs(predict_ckpt(os.path.join(ROOT, active_ckpt), Xs, Ca), a_labels, us, a_unit)
+            def active_pred(texts, us):
+                # each model is scored with its own question, so re-encode if the two differ
+                Xa = _embed(j, enc, [state_text(t, a_instr) for t in texts], "gate_active")
+                pa = mask_probs(predict_ckpt(os.path.join(ROOT, active_ckpt), Xa, Ca), a_labels, us, a_unit)
                 return remap[pa.argmax(1)]
             gate = {"sets": {}, "regressions": []}
-            gate["sets"]["test"] = _compare(y["test"], pm.argmax(1), active_pred(X["test"], units), labels)
+            gate["sets"]["test"] = _compare(y["test"], pm.argmax(1), active_pred([r["text"] for r in splits["test"]], units), labels)
             for key, path in OOD_FILES.items():
-                if os.path.exists(path) and all(l in LABEL_SETS["7way"] for l in labels[1:]):   # positives within the shipped taxonomy
+                if os.path.exists(path) and all(l in EXAMPLE_LABEL_SETS["7way"] for l in labels[1:]):   # regulatory example only
                     rs = [json.loads(l) for l in open(path)]
                     yo = np.array([labels.index(r["label"] if r["label"] in classes else neg) for r in rs])
-                    Xo = _embed(j, enc, [state_text(r["text"], INSTRUCTIONS) for r in rs], key)
+                    Xo = _embed(j, enc, [state_text(r["text"], instr) for r in rs], key)
                     uo = [r.get("unit") for r in rs]
                     pc = mask_probs(predict_ckpt(out_ckpt, Xo, C), labels, uo, unit_classes).argmax(1)
-                    gate["sets"][key] = _compare(yo, pc, active_pred(Xo, uo), labels)
+                    gate["sets"][key] = _compare(yo, pc, active_pred([r["text"] for r in rs], uo), labels)
             for sname, cmpd in gate["sets"].items():
                 if cmpd["candidate"]["macro_f1"] < cmpd["active"]["macro_f1"] - 0.01:
                     gate["regressions"].append(f"{sname}: macro-F1 {cmpd['active']['macro_f1']:.3f} -> {cmpd['candidate']['macro_f1']:.3f}")
@@ -642,7 +673,7 @@ def _run_inner(j: dict, enc, active_ckpt: str | None) -> None:
 
     entry = {"name": name, "base_name": base_name, "version": version, "parent": os.path.relpath(init_ckpt, ROOT) if init_ckpt.startswith(ROOT) else os.path.basename(init_ckpt),
              "checkpoint": os.path.relpath(out_ckpt, ROOT), "created": time.time(), "labels": labels,
-             "classes": classes, "names": names, "unit_classes": unit_classes,
+             "classes": classes, "names": names, "unit_classes": unit_classes, "instructions": instr,
              "source": "post-training" if req.get("post_train") else "trained from upload",
              "train_data": os.path.join("app", "data", "uploads", req["upload_id"], "clean.jsonl") if req.get("upload_id") else
                            (registry_entry_for(active_ckpt) or {}).get("train_data"),

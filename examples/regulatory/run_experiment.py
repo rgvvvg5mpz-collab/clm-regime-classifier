@@ -5,7 +5,7 @@
                     softmax-CE over the 7 candidates (the repo's ``choice --loss softce``)
   3. linear_probe   logistic regression on the frozen Qwen3-8B state embeddings (baseline)
 
-Encoder embeddings are computed once (Qwen3-8B on MPS) and cached in emb_cache/.
+Encoder embeddings are computed once (Qwen3-8B, engine/encoder.py) and cached in cache/embeddings/.
 The fine-tuned head is saved in CLM checkpoint format, so Engine / clm-serve load it.
 """
 from __future__ import annotations
@@ -23,12 +23,13 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, f1_score
 
 from classes import CKPT_NAME, CLASSES, DATA_DIR, INSTRUCTIONS, LABEL_SET, LABELS
-from clm.heads import HeadPair, make_head
+from clm.heads import HeadPair
 from clm.schema import state_text
+from engine.paths import MODELS_DIR
+from engine.trainer import REF_CKPT, clm_logits, clm_predict, load_heads  # noqa: F401  (re-exported for the other scripts)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-REF_CKPT = os.path.expanduser("~/.cache/clm/CLM_v0.1-8B.pt")
-OUT_CKPT = os.path.join(HERE, "checkpoints", CKPT_NAME)
+OUT_CKPT = os.path.join(MODELS_DIR, CKPT_NAME)
 RESULTS = os.path.join(HERE, "results")
 
 
@@ -37,7 +38,7 @@ def load_split(split: str) -> list[dict]:
 
 
 def embeddings(splits: dict[str, list[dict]]) -> tuple[dict[str, np.ndarray], np.ndarray]:
-    from mps_embedder import MPSEmbedder, embed_cached
+    from engine.encoder import MPSEmbedder, embed_cached
     texts = {s: [state_text(r["text"], INSTRUCTIONS) for r in rows] for s, rows in splits.items()}
     cand_texts = list(CLASSES.values())
     try:   # all cached -> skip loading the 16 GB encoder
@@ -66,32 +67,6 @@ def metrics(y: np.ndarray, pred: np.ndarray) -> dict:
 
 
 # ----------------------------------------------------------------- CLM heads
-def load_heads(path: str, device: str):
-    ck = torch.load(path, map_location="cpu")
-    cfg = dict(ck["cfg"])
-    kw = dict(width=cfg["width"], depth=cfg["depth"], proj=cfg.get("projection_dim", 512),
-              activation=cfg.get("activation", "gelu"), layernorm=cfg.get("layernorm", False),
-              residual=cfg.get("residual", False), hidden=cfg.get("hidden_size", 4096))
-    sh, ah = make_head(**kw), make_head(**kw)
-    sh.load_state_dict(ck["state_head"]); ah.load_state_dict(ck["action_head"])
-    log_scale = torch.nn.Parameter(torch.as_tensor(ck["logit_scale"]).float().clone())
-    return sh.to(device), ah.to(device), log_scale, cfg
-
-
-def clm_logits(sh, ah, log_scale, X: torch.Tensor, C: torch.Tensor) -> torch.Tensor:
-    zs = F.normalize(sh(X), dim=-1)
-    zc = F.normalize(ah(C), dim=-1)
-    return log_scale.exp().clamp(max=100.0) * zs @ zc.T
-
-
-def clm_predict(sh, ah, log_scale, X: np.ndarray, C: np.ndarray, device: str) -> np.ndarray:
-    sh.eval(); ah.eval()
-    with torch.no_grad():
-        Xt, Ct = torch.from_numpy(X).to(device), torch.from_numpy(C).to(device)
-        return torch.cat([clm_logits(sh, ah, log_scale, Xt[i:i + 2048], Ct)
-                          for i in range(0, len(Xt), 2048)]).softmax(-1).cpu().numpy()
-
-
 def finetune(X: dict, y: dict, C: np.ndarray, device: str, epochs: int, lr: float, batch: int, seed: int):
     torch.manual_seed(seed)
     sh, ah, log_scale, cfg = load_heads(REF_CKPT, device)
@@ -151,7 +126,8 @@ def main():
     RESULTS = a.out
     OUT_CKPT = os.path.join(RESULTS, CKPT_NAME)
     os.makedirs(RESULTS, exist_ok=True)
-    device = "mps" if torch.backends.mps.is_available() else "cpu"
+    from engine.paths import device as _device
+    device = _device()
 
     splits = {s: load_split(s) for s in ("train", "val", "test")}
     y = {s: np.array([LABELS.index(r["label"]) for r in rows]) for s, rows in splits.items()}

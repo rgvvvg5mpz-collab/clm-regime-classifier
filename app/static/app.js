@@ -146,13 +146,20 @@ async function loadConfig() {
   $("apiKey").value = ss("apiKey") || "";
   applyPreset(state.config.presets[0]);
   refreshActiveModel();
-  const h = await api("/api/health");
-  setClf(h.classifier_loaded ? "on" : "off");
+  pollHealth();
+}
+async function pollHealth() {   // the server loads the encoder in the background at startup
+  let h; try { h = await api("/api/health"); } catch { setTimeout(pollHealth, 3000); return; }
+  if (h.state === "ready" || h.classifier_loaded) { setClf("on", h.seconds ? `Model ready (loaded in ${h.seconds}s)` : "Model ready"); return; }
+  if (h.state === "loading") { setClf("busy", "Loading the encoder\u2026 (first run downloads ~16 GB)"); setTimeout(pollHealth, 2500); return; }
+  if (h.state === "missing_model") { setClf("off", "Model file missing: run scripts/setup.sh"); return; }
+  if (h.state === "error") { setClf("off", "Load failed: " + (h.detail || "see server log")); return; }
+  setClf("off"); setTimeout(pollHealth, 2500);
 }
 
 function setClf(s, text) {
   $("clfDot").className = "dot" + (s === "on" ? " on" : s === "busy" ? " busy" : "");
-  $("clfStatus").textContent = text || { on: "Classifier ready", busy: "Loading Qwen3-8B…", off: "Classifier not loaded" }[s];
+  $("clfStatus").textContent = text || { on: "Model ready", busy: "Loading the encoder\u2026", off: "Model not loaded" }[s];
   $("warmup").style.display = s === "off" ? "" : "none";
 }
 
@@ -163,7 +170,8 @@ async function warmup() {
 }
 
 // ---------------------------------------------------------------- transcripts
-async function loadTranscriptUrl(url) {
+async function loadTranscriptUrl(url) {   // project-relative paths go through the files API
+  if (!url.startsWith("/")) url = "/api/files/transcript?path=" + encodeURIComponent(url);
   try {
     const r = await fetch(url);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -197,8 +205,9 @@ function setTranscript(t, name) {
     sel.add(new Option(`${i + 1}. ${c.title || c.id || "conversation"} (${n ? `${n} expected flag${n === 1 ? "" : "s"}` : "clean"})`, i));
   });
   const total = t.conversations.reduce((a, c) => a + flagCount(c), 0);
-  $("transcriptInfo").textContent = `${t.title || name}: ${t.conversations.length} conversations, ` +
-    `${total} turns the author expects flagged` + (t.description ? ` - ${t.description}` : "");
+  const info = $("transcriptInfo");
+  info.textContent = `${t.conversations.length} conversations \u00b7 ${total} turns expected to be flagged`;
+  info.dataset.tip = (t.title || name) + (t.description ? ": " + t.description : "");
   // Start on the conversation with the most expected flags so a demo doesn't open on a clean one.
   const busiest = t.conversations.reduce((b, c, i) => flagCount(c) > flagCount(t.conversations[b]) ? i : b, 0);
   sel.value = busiest;
@@ -519,7 +528,7 @@ $("wTrain").onclick = () => showView("trainView");
 $("wAbout").onclick = () => showView("aboutView");
 $("composer").onsubmit = send;
 $("input").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) send(e); });
-$("provider").onchange = () => { syncProvider(); if ($("provider").value === "scripted" && !state.transcript) loadTranscriptUrl("/static/transcripts/demo_conversations.json"); };
+$("provider").onchange = () => { syncProvider(); if ($("provider").value === "scripted" && !state.transcript) loadTranscriptUrl("examples/regulatory/transcripts/demo_conversations.json"); };
 $("warmup").onclick = warmup;
 $("newChat").onclick = () => { resetChat(); if (state.transcript) { state.turnIdx = 0; updatePlaybar(); } };
 $("conv").onchange = (e) => selectConversation(e.target.value);

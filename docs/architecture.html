@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Regime Classifier Architecture</title>
+<title>CLASP Architecture</title>
 <link rel="stylesheet" href="style.css">
 <style>
   svg .box { fill: var(--surface, #ffffff); stroke: var(--border, #e4e3de); stroke-width: 1.5; }
@@ -31,6 +31,7 @@
 </nav>
 
 <h1>Architecture</h1>
+<p class="muted">The model diagram is generic; the system diagram shows the regulatory example's data flow.</p>
 <p class="lede">The model, in one diagram, and the system around it, in another.</p>
 
 <h2>1. Model: one message → seven scores</h2>
@@ -128,7 +129,7 @@ checkpoint, so each message costs one encoder pass plus a 512×7 matrix product.
   <rect class="box" x="210" y="50" width="150" height="70" rx="8"/>
   <text class="t" x="224" y="76">build_dataset.py</text><text class="s" x="224" y="96">7 classes · scrub</text>
   <rect class="store" x="390" y="50" width="150" height="70" rx="8"/>
-  <text class="t" x="404" y="76">emb_cache/</text><text class="s" x="404" y="96">text-keyed fp16 store</text>
+  <text class="t" x="404" y="76">cache/embeddings/</text><text class="s" x="404" y="96">text-keyed fp16 store</text>
   <rect class="box" x="570" y="50" width="160" height="70" rx="8"/>
   <text class="t" x="584" y="76">run_experiment.py</text><text class="s" x="584" y="96">train heads · LR sweep</text>
   <rect class="train" x="760" y="50" width="170" height="70" rx="8"/>
@@ -152,7 +153,7 @@ checkpoint, so each message costs one encoder pass plus a 512×7 matrix product.
   <rect class="box" x="230" y="290" width="170" height="80" rx="8"/>
   <text class="t" x="244" y="316">app/server.py</text><text class="s" x="244" y="336">FastAPI · /api/chat</text><text class="s" x="244" y="354">/api/feedback</text>
   <rect class="train" x="500" y="270" width="200" height="72" rx="8"/>
-  <text class="t" x="514" y="296">RegimeClassifier</text><text class="s" x="514" y="316">inference.py</text><text class="s" x="514" y="332">client- / assistant-side mask</text>
+  <text class="t" x="514" y="296">Classifier</text><text class="s" x="514" y="316">engine/classifier.py</text><text class="s" x="514" y="332">client- / assistant-side mask</text>
   <rect class="box" x="500" y="370" width="200" height="72" rx="8"/>
   <text class="t" x="514" y="396">app/llm.py</text><text class="s" x="514" y="416">Anthropic SDK, or any</text><text class="s" x="514" y="432">OpenAI-compatible endpoint</text>
   <rect class="box" x="750" y="370" width="180" height="72" rx="8"/>
@@ -181,11 +182,11 @@ developer guide).</figcaption>
 <h2>3. Components</h2>
 <div class="scroll"><table>
 <tr><th>Component</th><th>Responsibility</th><th>Key detail</th></tr>
-<tr><td><code>regime_clf/build_dataset.py</code></td><td>Merge 6 tracks into 7 classes</td><td>Keeps the source splits; dedup/conflict checks; name scrub; adds <code>unit</code></td></tr>
-<tr><td><code>regime_clf/mps_embedder.py</code></td><td>Qwen3-8B encoder without vLLM</td><td>Drop-in for <code>clm.embedder.Embedder</code>; content-addressed cache</td></tr>
-<tr><td><code>regime_clf/run_experiment.py</code></td><td>Zero-shot, fine-tune, probe</td><td>Saves CLM-format checkpoint (loads in <code>clm.Engine</code> / <code>clm-serve</code>)</td></tr>
-<tr><td><code>regime_clf/evaluate.py</code></td><td>Score any labelled JSONL</td><td>Bootstrap CIs; slices by OOD axis, difficulty and speaker</td></tr>
-<tr><td><code>regime_clf/inference.py</code></td><td>Production entry point</td><td>Python API + CLI; local encoder or <code>--emb-url</code> for vLLM</td></tr>
+<tr><td><code>examples/regulatory/build_dataset.py</code></td><td>Merge 6 tracks into 7 classes</td><td>Keeps the source splits; dedup/conflict checks; name scrub; adds <code>unit</code></td></tr>
+<tr><td><code>engine/encoder.py</code></td><td>Qwen3-8B encoder without vLLM</td><td>Drop-in for <code>clm.embedder.Embedder</code>; content-addressed cache</td></tr>
+<tr><td><code>examples/regulatory/run_experiment.py</code></td><td>Zero-shot, fine-tune, probe</td><td>Saves CLM-format checkpoint (loads in <code>clm.Engine</code> / <code>clm-serve</code>)</td></tr>
+<tr><td><code>examples/regulatory/evaluate.py</code></td><td>Score any labelled JSONL</td><td>Bootstrap CIs; slices by OOD axis, difficulty and speaker</td></tr>
+<tr><td><code>engine/classifier.py</code></td><td>Production entry point</td><td>Python API + CLI; local encoder or <code>--emb-url</code> for vLLM</td></tr>
 <tr><td><code>app/server.py</code></td><td>Screened chat backend</td><td>Lazy model load; JSONL logs; feedback endpoint</td></tr>
 <tr><td><code>app/llm.py</code></td><td>Provider adapters</td><td>Anthropic SDK (refusal fallback on), OpenAI-compatible HTTP</td></tr>
 <tr><td><code>Tests/make_reports.py</code></td><td>HTML reports</td><td>One <code>report.html</code> per dated run + index</td></tr>

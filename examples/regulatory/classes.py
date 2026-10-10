@@ -16,6 +16,12 @@ on purpose: the encoder embedding of a state depends on it, so keeping it fixed 
 the cached embeddings be reused across label sets.
 """
 import os
+import sys
+
+# The example scripts run from this folder; make the repo root (engine/, tools/) importable.
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
 
 INSTRUCTIONS = ("Which securities regulation does this message from a broker-dealer's "
                 "AI chat channel potentially violate or trigger, if any?")
@@ -70,6 +76,13 @@ NEGATIVE = LABELS[0]
 DROPPED = DROPPED_TRACKS[LABEL_SET]
 DATA_DIR = "data" if LABEL_SET == "7way" else f"data_{LABEL_SET}"
 CKPT_NAME = "clm_regime_7way.pt" if LABEL_SET == "7way" else f"clm_regime_{LABEL_SET}.pt"
+
+
+# Which classes each speaker can receive (the negative class is always allowed).
+UNIT_CLASSES = {
+    "client_message": ["finra_4530", "sec_17a3_17a4", "reg_sp", "reg_sid"],
+    "assistant_response": ["finra_2210", "reg_bi"],
+}
 
 
 def to_label_set(label: str) -> str:

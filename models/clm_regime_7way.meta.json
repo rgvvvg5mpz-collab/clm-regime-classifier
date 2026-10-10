@@ -1,0 +1,26 @@
+{
+  "names": {
+    "compliant": "No issue",
+    "finra_2210": "FINRA Rule 2210 (communications)",
+    "reg_bi": "Regulation Best Interest",
+    "finra_4530": "FINRA Rule 4530 (customer complaint)",
+    "sec_17a3_17a4": "SEC 17a-3/17a-4 (books & records)",
+    "reg_sp": "Regulation S-P (privacy)",
+    "reg_sid": "Regulation S-ID (identity theft)"
+  },
+  "unit_classes": {
+    "client_message": [
+      "finra_4530",
+      "sec_17a3_17a4",
+      "reg_sp",
+      "reg_sid"
+    ],
+    "assistant_response": [
+      "finra_2210",
+      "reg_bi"
+    ]
+  },
+  "release": "v1.0",
+  "example": "regulatory",
+  "train_data": "examples/regulatory/data"
+}

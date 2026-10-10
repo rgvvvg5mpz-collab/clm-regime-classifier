@@ -1,4 +1,5 @@
-"""Supervised chat: any LLM, every turn screened by the CLM regime classifier.
+"""CLASP workbench server: curate data, train / post-train contrastive (CLM) classifiers, and
+use the selected model to screen chats (any LLM, or scripted transcripts).
 
     .venv/bin/python -m uvicorn app.server:app --port 8710      # from the repo root
     open http://localhost:8710
@@ -24,11 +25,12 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(ROOT, "regime_clf"))
+sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from llm import LLMError, ProviderConfig, chat  # noqa: E402
 import training  # noqa: E402
+from engine.paths import GENERIC_INSTRUCTIONS  # noqa: E402
 import curation  # noqa: E402
 
 CONFIG = yaml.safe_load(open(os.environ.get("CHAT_CONFIG", os.path.join(ROOT, "app", "config.yaml"))))
@@ -37,19 +39,42 @@ FEEDBACK = os.path.join(ROOT, CONFIG["storage"]["feedback"])
 _write_lock = threading.Lock()
 _clf = None
 _clf_lock = threading.Lock()
+_load_state = {"state": "idle", "detail": "", "seconds": None}   # idle | loading | ready | error | missing_model
+
+
+def _make_classifier(checkpoint: str, embedder=None):
+    from engine.classifier import Classifier
+    entry = training.registry_entry_for(checkpoint) or {}
+    return Classifier(os.path.join(ROOT, checkpoint), emb_url=CONFIG["classifier"].get("emb_url") or None,
+                      embedder=embedder, unit_classes=entry.get("unit_classes"), names=entry.get("names"))
 
 
 def classifier():
-    """Load lazily: Qwen3-8B takes ~20 s and ~16 GB, so the UI can come up first."""
+    """Load the selected checkpoint and the shared Qwen3-8B encoder (~16 GB, 15-20 s; the first
+    run also downloads it). Started in the background when the server boots."""
     global _clf
     with _clf_lock:
         if _clf is None:
-            from inference import RegimeClassifier
-            c = CONFIG["classifier"]
-            entry = training.registry_entry_for(c["checkpoint"]) or {}
-            _clf = RegimeClassifier(os.path.join(ROOT, c["checkpoint"]), emb_url=c.get("emb_url") or None,
-                                    unit_classes=entry.get("unit_classes"))
+            ckpt = CONFIG["classifier"]["checkpoint"]
+            if not os.path.exists(os.path.join(ROOT, ckpt)):
+                _load_state.update(state="missing_model", detail=f"{ckpt} not found: run scripts/setup.sh to download the shipped models")
+                raise HTTPException(503, _load_state["detail"])
+            _load_state.update(state="loading", detail="loading the Qwen3-8B encoder (first run downloads ~16 GB)")
+            t0 = time.perf_counter()
+            try:
+                _clf = _make_classifier(ckpt)
+            except Exception as e:
+                _load_state.update(state="error", detail=f"{type(e).__name__}: {e}")
+                raise
+            _load_state.update(state="ready", detail="", seconds=round(time.perf_counter() - t0, 1))
         return _clf
+
+
+def _boot_warmup():
+    try:
+        classifier()
+    except Exception:   # state already recorded for /api/health
+        pass
 
 
 def append_jsonl(path: str, row: dict) -> None:
@@ -102,9 +127,15 @@ class FeedbackRequest(BaseModel):
     note: str | None = None
 
 
-app = FastAPI(title="CLM regime screening chat")
+app = FastAPI(title="CLASP workbench")
 app.mount("/static", StaticFiles(directory=os.path.join(ROOT, "app", "static")), name="static")
 app.mount("/docs", StaticFiles(directory=os.path.join(ROOT, "docs")), name="docs")      # linked from the "The classes" tab
+
+
+@app.on_event("startup")
+def _startup():
+    if os.environ.get("CLASP_NO_WARMUP") != "1":
+        threading.Thread(target=_boot_warmup, daemon=True).start()
 
 
 @app.get("/")
@@ -118,41 +149,39 @@ def get_config():
     return {"presets": CONFIG["presets"], "system_prompt": CONFIG.get("system_prompt", ""),
             "on_flagged_response": CONFIG["screening"].get("on_flagged_response", "warn"),
             "labels": labels, "unit_classes": unit_classes, "descriptions": descriptions,
-            "active": CONFIG["classifier"]["checkpoint"]}
+            "active": CONFIG["classifier"]["checkpoint"], "generic_instructions": GENERIC_INSTRUCTIONS,
+            "instructions": getattr(_clf, "instructions", None)}
 
 
 def _label_space():
     """{label: display name} and {unit: [labels]} for the model the UI will use: the loaded
     classifier's if it is up, else the checkpoint's own class list (cheap: heads only)."""
-    import torch
-    from inference import RULE_NAMES, UNIT_CLASSES
     if _clf is not None:
-        classes = dict(_clf.classes)
-        unit = getattr(_clf, "unit_classes", None)
-    else:
-        ck = torch.load(os.path.join(ROOT, CONFIG["classifier"]["checkpoint"]), map_location="cpu")
-        classes = dict(ck["classes"]); unit = None
+        return dict(_clf.names), dict(_clf.unit_classes), dict(_clf.classes)
+    import torch
+    from engine.classifier import read_meta
+    ckpt = os.path.join(ROOT, CONFIG["classifier"]["checkpoint"])
+    if not os.path.exists(ckpt):
+        return {"none": "No model"}, {"client_message": ["none"], "assistant_response": ["none"]}, {"none": ""}
+    classes = dict(torch.load(ckpt, map_location="cpu")["classes"])
     labels = list(classes); neg = labels[0]
-    # user-trained models carry their own display names and speaker masks in the registry
     entry = training.registry_entry_for(CONFIG["classifier"]["checkpoint"]) or {}
-    names = entry.get("names") or {}
-    if entry.get("unit_classes"):
-        unit = {u: [neg] + [l for l in ls if l in classes] for u, ls in entry["unit_classes"].items()}
-    if unit is None:
-        unit = {u: [neg] + [l for l in ls if l in classes] for u, ls in UNIT_CLASSES.items()}
-    return ({l: names.get(l) or RULE_NAMES.get(l, l) for l in labels}, unit, classes)
+    meta = read_meta(ckpt)
+    names = {**{l: l for l in labels}, **(meta.get("names") or {}), **(entry.get("names") or {})}
+    src = entry.get("unit_classes") or meta.get("unit_classes") or {u: labels[1:] for u in ("client_message", "assistant_response")}
+    unit = {u: [neg] + [l for l in ls if l in classes and l != neg] for u, ls in src.items()}
+    return names, unit, classes
 
 
 @app.get("/api/health")
 def health():
-    return {"classifier_loaded": _clf is not None}
+    return {"classifier_loaded": _clf is not None, **_load_state}
 
 
 @app.post("/api/warmup")
 def warmup():
-    t0 = time.perf_counter()
     classifier()
-    return {"classifier_loaded": True, "seconds": round(time.perf_counter() - t0, 1)}
+    return {"classifier_loaded": True, "seconds": _load_state.get("seconds")}
 
 
 @app.post("/api/classify")
@@ -263,6 +292,7 @@ class ValidateRequest(BaseModel):
     upload_id: str
     spec: dict
     expert: bool = False     # post-training corrections: no per-class minimums
+    instructions: str | None = None   # the question appended to every input (default: generic)
 
 
 class StartRequest(BaseModel):
@@ -346,7 +376,7 @@ def train_use_example(req: ExampleRequest):
 @app.post("/api/train/validate")
 def train_validate(req: ValidateRequest):
     try:
-        return training.validate(req.upload_id, req.spec, expert=req.expert)
+        return training.validate(req.upload_id, req.spec, expert=req.expert, instructions=req.instructions)
     except FileNotFoundError as e:
         raise HTTPException(404, str(e))
 
@@ -397,12 +427,10 @@ def train_activate(req: ActivateRequest):
     path = os.path.join(ROOT, req.checkpoint)
     if not os.path.exists(path):
         raise HTTPException(404, f"{req.checkpoint} not found")
-    from inference import RegimeClassifier
-    entry = training.registry_entry_for(req.checkpoint) or {}
     with _clf_lock:
         emb = _clf.embedder if _clf is not None else None
-        _clf = RegimeClassifier(path, emb_url=CONFIG["classifier"].get("emb_url") or None, embedder=emb,
-                                unit_classes=entry.get("unit_classes"))
+        _clf = _make_classifier(req.checkpoint, embedder=emb)
+        _load_state.update(state="ready", detail="")
     CONFIG["classifier"]["checkpoint"] = req.checkpoint
     append_jsonl(os.path.join(ROOT, "app", "data", "promotions.jsonl"),
                  {"ts": time.time(), "checkpoint": req.checkpoint, "reason": req.reason})

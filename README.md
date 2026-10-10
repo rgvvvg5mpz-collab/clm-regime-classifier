@@ -1,72 +1,75 @@
-# System 1 Workbench: contrastive-loss classifiers
+# CLASP: Contrastive Labelling And System-1 Prediction
 
-A workbench for training, using and refining **System 1 classifiers** built on [CLM-8B](https://huggingface.co/Contrastive-LM/CLM-v0.1-8B): two small heads trained with a contrastive loss over class descriptions, on a frozen Qwen3-8B encoder. Upload labelled text, define your classes, train in about a minute, use the model in a screened chat, flag mistakes, and fold the corrections back in as a new, gated, versioned model. The chat UI (`app/`) has five tabs: **0 Data curation** (prompt Claude Code to research a topic and write a labelled dataset), **1 Train**, **2 Chat & flag**, **3 Post-train**, and a reference tab for the selected model's classes; any registry model can be selected from the sidebar. Data curation needs the Claude Code CLI logged in on the server machine (`claude /login`).
+A workbench for building **System-1 text classifiers** trained with a contrastive loss. Two small heads ([CLM-8B](https://huggingface.co/Contrastive-LM/CLM-v0.1-8B), Stanford/NVIDIA) sit on a frozen Qwen3-8B encoder and score each text against a one-sentence description of every class. A few hundred labelled rows per class train a model in about a minute.
 
-## The worked example: a regulatory regime classifier
+The browser UI covers the whole loop:
 
-A classifier for a broker-dealer's GenAI chat channel. Given a message, it names the securities-regulation regime the message implicates, or flags nothing. Two label sets: **5-way** (`no_flag`, FINRA 2210, Reg BI, FINRA 4530, SEC 17a-3/4; Reg S-P and Reg S-ID content is out of class and left unflagged) and **7-way** (`compliant` plus all six regimes). It's built on [CLM-8B](https://huggingface.co/Contrastive-LM/CLM-v0.1-8B) (Stanford/NVIDIA contrastive language model), with fine-tuned projection heads on a frozen Qwen3-8B encoder, and trained on the [RegModels](https://github.com/rgvvvg5mpz-collab/RegModels) datasets.
+| Tab | What you do |
+|---|---|
+| **0 · Data curation** | Prompt Claude Code to research a topic and write a labelled dataset, class definitions and notes |
+| **1 · Train** | Pick a dataset (yours, curated, or an example), define the classes, validate, train, read the metrics |
+| **2 · Chat & flag** | Run conversations (scripted transcripts or a live LLM) through the selected model; flag its mistakes |
+| **3 · Post-train** | Fold the flags and any SME file back in, gate the candidate against the current model, promote it |
+| **? · The classes** | See what the selected model can assign, per speaker |
 
-| Macro-F1 | 5-way (v1.1) | 7-way (v1.0) | 7-way collapsed to 5 classes | n |
-|---|---|---|---|---|
-| Held-out test (in-distribution) | **0.983** [0.977–0.989] | 0.977 [0.970–0.983] | 0.985 | 2,501 |
-| OOD hard/very-hard (Claude Fable 5.1) | **0.800** [0.748–0.846] | 0.732 [0.680–0.778] | 0.822 | 315 |
-| OOD low/medium (Claude Fable 5.1) | **0.830** [0.770–0.882] | 0.748 [0.688–0.801] | 0.839 | 210 |
+Every model is versioned in a registry, and any version can be selected from the sidebar.
 
-**Accuracy / precision / recall** (fine-tuned CLM heads; precision and recall macro-averaged over classes; full per-class tables in [`Tests/METRICS.md`](Tests/METRICS.md)):
-
-| Run | n | Accuracy | Precision | Recall | Macro-F1 |
-|---|---:|---:|---:|---:|---:|
-| 5-way, held-out test | 2,501 | 0.986 | 0.984 | 0.983 | 0.983 |
-| 5-way, OOD hard/very-hard | 315 | 0.825 | 0.841 | 0.791 | 0.800 |
-| 5-way, OOD low/medium | 210 | 0.838 | 0.844 | 0.840 | 0.830 |
-| 7-way, held-out test | 2,501 | 0.979 | 0.977 | 0.976 | 0.977 |
-| 7-way, OOD hard/very-hard | 315 | 0.740 | 0.766 | 0.740 | 0.732 |
-| 7-way, OOD low/medium | 210 | 0.767 | 0.818 | 0.767 | 0.748 |
-
-Plan around the OOD numbers. The 5-way model's higher OOD scores come from no longer scoring the two hardest regimes, not from retraining (last column of the first table). Explicit, easy-to-read messages are no easier for either model than hard ones: the drop comes from distribution shift, not difficulty. See [`Tests/`](Tests/index.html) for every run.
-
-**Your data.** Put labelled `.csv` / `.jsonl` files (and chat transcripts as `.json`) in [`data/`](data/README.md); they appear at the top of the workbench's **Project data** pickers, next to the shipped examples and curated datasets. No upload needed.
-
-**Documentation (HTML).** Open the files locally, or view them via GitHub Pages / htmlpreview:
-- [Overview](docs/README.html) · [Methodology](docs/methodology.html) · [Architecture](docs/architecture.html)
-- [Developer handoff guide and improvements](docs/developer_guide.html) · [Chat UI dev README](app/DEV_README.html)
-- [Test runs](Tests/index.html)
-
-## Quick start
+## Run it
 
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-git clone https://github.com/Contrastive-LM/CLM.git && .venv/bin/pip install --no-deps -e CLM
-.venv/bin/clm-download                                                      # reference CLM heads
-gh release download v1.1 -p clm_regime_5way.pt -D regime_clf/checkpoints   # 5-way heads (UI default)
-gh release download v1.0 -p clm_regime_7way.pt -D regime_clf/checkpoints   # 7-way heads
-
-cd regime_clf && ../.venv/bin/python inference.py "Can you text me on my personal cell?" --unit client_message
-cd .. && .venv/bin/python -m uvicorn app.server:app --port 8710            # chat UI: http://localhost:8710
+git clone https://github.com/rgvvvg5mpz-collab/clm-regime-classifier.git && cd clm-regime-classifier
+scripts/run_ui.sh
 ```
 
-**The exercise (about 15 minutes, no API key needed).** The chat UI's **Train** tab walks you through the regime classifier as an example problem: pick the shipped example dataset (`app/examples/regime_5way_sample.csv`, 2,100 rows, classes prefilled), validate, train (about a minute), read the metrics and report, activate the model, replay the demo transcripts in **Chat** and flag the verdicts you disagree with, then on **Post-train** combine those flags with the example SME corrections (`regime_5way_expert_corrections.csv`) to train a candidate, gate it against the active model on the held-out and OOD sets, and promote it. Every model is versioned in the registry (v1, v2, …) with its parent, metrics and gate result, and any version can be re-activated. Data for all steps ships in `app/examples/` and `app/static/transcripts/`.
+Then open <http://localhost:8710>. The first run sets everything up: `.venv`, requirements, CLM into `third_party/`, the reference heads, and the two shipped models from the GitHub releases. The Qwen3-8B encoder (~16 GB) downloads the first time the UI loads a model.
 
-The chat UI opens in **demo mode**: it replays Fable-written scripted conversations (`app/static/transcripts/demo_conversations.json`) through the screening pipeline, no LLM or API key needed, and shows the author's expected flag next to each verdict. Upload your own transcript (`app/transcripts/FORMAT.md`) or switch to a live Claude / OpenAI-compatible model from the sidebar.
+**With Claude Code:** open the clone and ask it to *"run the UI"*. The repo ships a `run-ui` skill and launch configurations for exactly that.
 
-Qwen3-8B (~16 GB) downloads on first use. It runs in-process on Apple Silicon/CPU, or you can point `--emb-url` at a vLLM pooling server.
+**Requirements:** Python 3.10+, git, curl, ~20 GB of disk, and either Apple Silicon with 24 GB+ of unified memory or a CUDA GPU with 24 GB+.
 
-## Layout
+**What needs keys:**
+- Nothing, for the demo (scripted transcripts), training and post-training.
+- Live LLM chat needs `ANTHROPIC_API_KEY`, or a key typed in the sidebar. Any OpenAI-compatible endpoint also works.
+- The Data curation tab needs Claude Code logged in on the machine (`claude /login`), or run with `scripts/run_ui.sh --mock-curation` to try it offline.
+
+## Repository layout
 
 ```
-regime_clf/   dataset build, Qwen3-8B embedder, training, evaluation, inference pipeline
-  data/       7-way train/val/test built from RegModels; data_5way/ the 5-way variant
-  ood/        Fable OOD sets (spec, raw parts, merged ood_hard_v1.jsonl and ood_low_medium_v1.jsonl)
-app/          chat UI: FastAPI server, scripted-transcript replay (demo default) + Anthropic / OpenAI-compatible adapters,
-              Train / Post-train tabs (training.py), example datasets (examples/), static front end, mock LLM
-Tests/        dated test runs, each with report.html; index.html summarises them
-docs/         HTML documentation
-tools/        name_check.py (blocked real-firm names)
-CLAUDE.md     orientation for Claude Code
+app/                  the workbench: FastAPI server (server.py), training jobs + registry (training.py),
+                      Claude Code runner (curation.py), LLM adapters (llm.py), static UI, offline mocks
+engine/               generic core: encoder + embedding store, contrastive head trainer, classifier (API + CLI)
+examples/regulatory/  the worked example: label sets, dataset build, research scripts, data splits, OOD sets,
+                      samples (Train-tab examples) and the demo transcript
+models/               checkpoints (*.pt, downloaded or trained, gitignored) + .meta.json sidecars
+data/                 your own datasets and transcripts (listed first in the UI's pickers)
+scripts/              setup.sh (one-time, idempotent), run_ui.sh
+Tests/                dated evaluation runs with report.html; index.html and METRICS.md summarise them
+docs/                 HTML documentation        tools/  name_check.py        CLAUDE.md  orientation for Claude Code
 ```
 
-## Model weights
+## Documentation
 
-`clm_regime_5way.pt` ([v1.1 release](../../releases/tag/v1.1)) and `clm_regime_7way.pt` ([v1.0 release](../../releases/tag/v1.0)), 75 MB each, are the fine-tuned heads. Both need `Qwen/Qwen3-8B` and are Apache 2.0, like CLM and Qwen3. Select the label set for the training/evaluation scripts with `REGIME_LABEL_SET=5way|7way`; `inference.py` and the chat UI read the class list from whichever checkpoint they load.
+These are HTML files: open them locally, or from the running UI at `/docs/…`.
 
-*Research code. It is not a compliance system of record and its output is not legal advice.*
+- [Overview](docs/README.html) · [Architecture](docs/architecture.html) · [Developer guide](docs/developer_guide.html) · [UI dev README](app/DEV_README.html)
+- The worked example: [methodology](docs/methodology.html) · [all test runs](Tests/index.html) · [metrics summary](Tests/METRICS.md)
+
+## The worked example: a regulatory regime screener
+
+The repo ships one complete example: a classifier for a broker-dealer's GenAI chat. It names the regime a message implicates (FINRA 2210, Reg BI, FINRA 4530, SEC 17a-3/4, Reg S-P, Reg S-ID) or flags nothing. It's trained on the [RegModels](https://github.com/rgvvvg5mpz-collab/RegModels) datasets.
+
+| Macro-F1 | 5-way model (v1.1, UI default) | 7-way model (v1.0) | n |
+|---|---|---|---|
+| Held-out test | **0.983** [0.977–0.989] | 0.977 [0.970–0.983] | 2,501 |
+| Out-of-distribution, hard (written by Claude Fable 5.1) | **0.800** [0.748–0.846] | 0.732 [0.680–0.778] | 315 |
+| Out-of-distribution, low/medium (Claude Fable 5.1) | **0.830** [0.770–0.882] | 0.748 [0.688–0.801] | 210 |
+
+Plan around the out-of-distribution numbers. The main weaknesses:
+- Reg BI recommendations get read as FINRA 2210 (Reg BI recall is 0.53 on the hard set).
+- The 7-way model confuses Reg S-ID with Reg S-P.
+
+The 5-way model's higher scores come from no longer scoring those two regimes, not from the retraining. See [`Tests/METRICS.md`](Tests/METRICS.md) for per-class precision and recall.
+
+The Train tab's walkthrough runs this example end to end in about 15 minutes.
+
+*Research code. It is not a compliance system of record, and its output is not legal advice.*

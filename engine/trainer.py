@@ -1,8 +1,9 @@
-"""Training and evaluation primitives that take the label space as data.
+"""Contrastive head training and evaluation, with the label space passed in as data.
 
-``run_experiment.py`` reads its classes from ``classes.py`` (selected by REGIME_LABEL_SET);
-this module is the same recipe with the classes passed in, so the chat UI can train a
-model on an uploaded dataset with user-defined classes. Checkpoints are the same format
+Score of (text, class) = exp(logit_scale) * cos(state_head(enc(text + question)),
+action_head(enc(class description))); training is softmax cross-entropy over the class
+descriptions, i.e. a contrastive loss where a row's own class is the positive and every
+other class is a negative. The encoder is frozen; only the two heads and the temperature train. Checkpoints are the same format
 (state_head / action_head / logit_scale / cfg + classes / instructions), so ``inference.py``
 and ``clm.Engine`` load them unchanged.
 """
@@ -18,7 +19,35 @@ import torch.nn.functional as F
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, f1_score
 
-from run_experiment import REF_CKPT, clm_logits, clm_predict, load_heads  # noqa: F401  (re-exported)
+from clm.heads import make_head
+
+from .paths import REF_CKPT, device as default_device
+
+
+def load_heads(path: str, device: str):
+    ck = torch.load(path, map_location="cpu")
+    cfg = dict(ck["cfg"])
+    kw = dict(width=cfg["width"], depth=cfg["depth"], proj=cfg.get("projection_dim", 512),
+              activation=cfg.get("activation", "gelu"), layernorm=cfg.get("layernorm", False),
+              residual=cfg.get("residual", False), hidden=cfg.get("hidden_size", 4096))
+    sh, ah = make_head(**kw), make_head(**kw)
+    sh.load_state_dict(ck["state_head"]); ah.load_state_dict(ck["action_head"])
+    log_scale = torch.nn.Parameter(torch.as_tensor(ck["logit_scale"]).float().clone())
+    return sh.to(device), ah.to(device), log_scale, cfg
+
+
+def clm_logits(sh, ah, log_scale, X: torch.Tensor, C: torch.Tensor) -> torch.Tensor:
+    zs = F.normalize(sh(X), dim=-1)
+    zc = F.normalize(ah(C), dim=-1)
+    return log_scale.exp().clamp(max=100.0) * zs @ zc.T
+
+
+def clm_predict(sh, ah, log_scale, X: np.ndarray, C: np.ndarray, device: str) -> np.ndarray:
+    sh.eval(); ah.eval()
+    with torch.no_grad():
+        Xt, Ct = torch.from_numpy(X).to(device), torch.from_numpy(C).to(device)
+        return torch.cat([clm_logits(sh, ah, log_scale, Xt[i:i + 2048], Ct)
+                          for i in range(0, len(Xt), 2048)]).softmax(-1).cpu().numpy()
 
 
 def metrics(y: np.ndarray, pred: np.ndarray, labels: list[str], ci: bool = True) -> dict:
@@ -61,7 +90,7 @@ def train_heads(X: dict[str, np.ndarray], y: dict[str, np.ndarray], C: np.ndarra
     ``X``/``y`` need ``train`` and ``val``; the checkpoint kept is the best validation macro-F1
     epoch. ``progress(epoch, epochs, loss, val_f1)`` is called after every epoch.
     """
-    device = device or ("mps" if torch.backends.mps.is_available() else "cpu")
+    device = device or default_device()
     torch.manual_seed(seed)
     sh, ah, log_scale, cfg = load_heads(init_ckpt, device)
     params = [*sh.parameters(), *ah.parameters(), log_scale]
@@ -99,7 +128,7 @@ def train_heads(X: dict[str, np.ndarray], y: dict[str, np.ndarray], C: np.ndarra
 
 
 def predict_ckpt(ckpt: str, X: np.ndarray, C: np.ndarray, device: str | None = None) -> np.ndarray:
-    device = device or ("mps" if torch.backends.mps.is_available() else "cpu")
+    device = device or default_device()
     sh, ah, ls, _ = load_heads(ckpt, device)
     return clm_predict(sh, ah, ls, X, C, device)
 
