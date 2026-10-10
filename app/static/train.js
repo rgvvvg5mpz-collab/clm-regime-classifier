@@ -56,6 +56,7 @@
       buildSpec(u);
       if (u.spec) applySpec(u.spec);
       $("t-step2").hidden = false; $("t-step3").hidden = false; $("t-step4").hidden = true; $("t-step5").hidden = true;
+      $("t-step1").classList.add("done"); ["t-step2", "t-step3", "t-step4", "t-step5"].forEach((i) => $(i).classList.remove("done"));
       $("trainName").value = (f ? f.name : ex).replace(/\.[^.]+$/, "").replace(/_sample$/, "").replace(/[^A-Za-z0-9_-]+/g, "_").slice(0, 30);
     } catch (e) { $("trainSummary").textContent = "Upload failed: " + e.message; }
   }
@@ -68,11 +69,13 @@
       r.append(el("td", "", label), el("td", "num", String(n)));
       const name = el("input"); name.name = "name"; name.value = KNOWN[label]?.[0] || label.replace(/_/g, " ");
       const desc = el("textarea"); desc.name = "description"; desc.rows = 2;
-      desc.placeholder = NEG_HINTS.includes(label.toLowerCase()) ? "e.g. Nothing to flag: ordinary questions, education, balanced answers" : "e.g. The customer is making a written grievance about …";
-      const sp = el("select"); sp.name = "speaker"; ["either", "client", "assistant"].forEach((v) => sp.add(new Option(v, v)));
+      desc.placeholder = NEG_HINTS.includes(label.toLowerCase()) ? "e.g. None of the other classes applies: an ordinary, unremarkable text" : "One plain sentence defining this class, e.g. 'The text expresses …'";
+      const sp = el("select"); sp.name = "speaker"; [["either", "either"], ["client", "user turn"], ["assistant", "assistant turn"]].forEach(([v, t]) => sp.add(new Option(t, v)));
+      sp.dataset.tip = "Which speaker's turns can receive this class. Leave 'either' for data that is not conversational.";
       sp.value = KNOWN[label]?.[1] || "either";
       const neg = el("input"); neg.type = "radio"; neg.name = "negative"; neg.value = label;
-      if (label === u.suggested_negative) { neg.checked = true; desc.value = "Nothing to flag: ordinary questions, general education, or a properly balanced and disclosed answer."; }
+      neg.dataset.tip = "Mark the one class that means 'none of the above'. Required: the model always picks a class, so it needs this one to abstain.";
+      if (label === u.suggested_negative) { neg.checked = true; desc.value = "None of the other classes applies."; }
       [name, desc, sp, neg].forEach((x) => { const c = el("td"); c.append(x); r.append(c); });
       t.append(r);
     });
@@ -100,7 +103,7 @@
     try {
       const v = await api("/api/train/validate", { upload_id: T.upload.upload_id, spec: readSpec() });
       issues($("trainValidation"), v);
-      T.validated = v.ok; $("t-step4").hidden = !v.ok;
+      T.validated = v.ok; $("t-step4").hidden = !v.ok; $("t-step2").classList.toggle("done", v.ok); $("t-step3").classList.toggle("done", v.ok);
     } catch (e) { $("trainValidation").textContent = "Validation failed: " + e.message; }
   }
   async function doTrain() {
@@ -109,7 +112,7 @@
       T.job = await api("/api/train/start", { name: $("trainName").value, epochs: +$("trainEpochs").value, lr: +$("trainLr").value,
         init: $("trainInit").value, upload_id: T.upload.upload_id });
       $("trainStart").disabled = true;
-      poll(T.job.id, $("trainJob"), (j) => { $("trainStart").disabled = false; if (j.status === "done") { $("t-step5").hidden = false; renderResults($("trainResults"), j.result); } });
+      poll(T.job.id, $("trainJob"), (j) => { $("trainStart").disabled = false; if (j.status === "done") { $("t-step4").classList.add("done"); $("t-step5").hidden = false; renderResults($("trainResults"), j.result); $("t-step5").scrollIntoView({ block: "start" }); if (window.toast) window.toast("Training finished: results are below"); } });
     } catch (e) { $("trainJob").textContent = "Could not start: " + e.message; }
   }
 
@@ -135,8 +138,15 @@
     if (j.error) box.append(el("div", "issue err", j.error));
     const pre = el("pre", "", (j.log || []).slice(-12).join("\n")); box.append(pre);
   }
+  const TIPS = {
+    "CLM heads, speaker-masked (the model)": "The trained model as it runs in the chat: classes a speaker cannot receive are masked out before the softmax (no effect when every class applies to either speaker).",
+    "CLM heads, unmasked": "The same heads without the speaker mask. If this is lower, the mask is doing useful work.",
+    "Linear probe baseline": "Logistic regression on the same frozen Qwen3-8B embeddings. A sanity check: if it beats the heads, the heads are undertrained.",
+    "Zero-shot reference heads": "The published CLM heads with your class descriptions and no training. Expected to be near chance.",
+  };
   function metricRow(label, m) {
     const r = el("tr"); const ma = m.per_class["macro avg"];
+    if (TIPS[label]) r.dataset.tip = TIPS[label];
     r.append(el("td", "", label), el("td", "num", pct(m.accuracy)), el("td", "num", ma.precision.toFixed(3)), el("td", "num", ma.recall.toFixed(3)), el("td", "num", m.macro_f1.toFixed(3)));
     return r;
   }
@@ -146,7 +156,8 @@
     m.confusion.forEach((row, i) => {
       const r = el("tr"); r.append(el("th", "", names[labels[i]] || labels[i]));
       const tot = row.reduce((a, b) => a + b, 0) || 1;
-      row.forEach((v) => { const c = el("td", "cell", String(v)); c.style.background = `rgba(47, 91, 211, ${(v / tot).toFixed(2)})`; if (v / tot > 0.55) c.style.color = "#fff"; r.append(c); });
+      row.forEach((v, j) => { const c = el("td", "cell", String(v)); c.style.background = `rgba(var(--heat, 150, 21, 29), ${(v / tot).toFixed(2)})`; if (v / tot > 0.55) c.style.color = "#fff";
+        c.dataset.tip = `${v} ${names[labels[i]] || labels[i]} turn${v === 1 ? "" : "s"} predicted as ${names[labels[j]] || labels[j]} (${(100 * v / tot).toFixed(0)}% of that class)`; r.append(c); });
       t.append(r);
     });
     return t;
@@ -168,10 +179,11 @@
     const row = el("div", "row");
     if (res.report) { const a = el("a", "", "Open full report"); a.href = "/" + res.report; a.target = "_blank"; row.append(a); }
     const act = el("button", "", res.gate && !res.gate.passed ? "Promote anyway (needs a reason)" : "Activate this model");
+    act.dataset.tip = res.gate && !res.gate.passed ? "The gate found regressions; promoting requires a reason, which is logged with the promotion." : "Make this checkpoint the one that screens the chat. The encoder stays loaded, so it is instant.";
     act.onclick = async () => {
       let reason = null;
       if (res.gate && !res.gate.passed) { reason = prompt("The gate found regressions. Reason for promoting anyway:"); if (!reason) return; }
-      try { const r = await api("/api/train/activate", { checkpoint: res.checkpoint, reason }); act.replaceWith(el("span", "thanks", `Active: ${r.active}`)); loadModels(); if (window.showView) { /* refresh labels */ fetch("/api/config").then((x) => x.json()).then((c) => { state.config = c; state.labels = c.labels; }); } }
+      try { const r = await api("/api/train/activate", { checkpoint: res.checkpoint, reason }); act.replaceWith(el("span", "thanks", `Active: ${r.active.split("/").pop()}`)); loadModels(); fetch("/api/config").then((x) => x.json()).then((c) => { state.config = c; state.labels = c.labels; }); if (window.refreshActiveModel) window.refreshActiveModel(); if (window.toast) window.toast("Model activated: it now screens the chat"); }
       catch (e) { alert("Could not activate: " + e.message); }
     };
     row.append(act); box.append(row);
@@ -183,6 +195,7 @@
     const t = el("table"); const h = el("tr"); ["Set", "n", "Active macro-F1", "Candidate macro-F1", "Δ", "Per-class recall (active → candidate)"].forEach((x) => h.append(el("th", "", x))); t.append(h);
     Object.entries(g.sets).forEach(([s, c]) => {
       const d = c.candidate.macro_f1 - c.active.macro_f1; const r = el("tr");
+      r.dataset.tip = { test: "The candidate's own held-out split.", ood_hard: "Regulatory example only: 315 hard / very hard out-of-distribution messages, never used for training.", ood_low_medium: "Regulatory example only: 210 low / medium out-of-distribution messages, never used for training." }[s] || s;
       r.append(el("td", "", s), el("td", "num", String(c.n)), el("td", "num", c.active.macro_f1.toFixed(3)), el("td", "num", c.candidate.macro_f1.toFixed(3)),
         el("td", "num delta " + (d >= -0.01 ? "up" : "down"), (d >= 0 ? "+" : "") + d.toFixed(3)),
         el("td", "small", labels.slice(1).map((l) => `${names[l] || l}: ${c.active.recall[l].toFixed(2)} → ${c.candidate.recall[l].toFixed(2)}`).join(" · ")));
@@ -203,7 +216,7 @@
           el("td", "small muted", (m.parent || "").split("/").pop()), el("td", "muted", m.source), el("td", "small", m.labels.join(", ")),
           el("td", "num", m.metrics?.test_macro_f1 != null ? m.metrics.test_macro_f1.toFixed(3) : "-"),
           el("td", "", m.gate ? (m.gate.passed ? "passed" : "failed") : "-"));
-        const c = el("td"); if (!active) { const b = el("button", "linkbtn", "activate"); b.onclick = async () => { try { await api("/api/train/activate", { checkpoint: m.checkpoint }); loadModels(); loadActive(); } catch (e) { alert(e.message); } }; c.append(b); }
+        const c = el("td"); if (!active) { const b = el("button", "linkbtn", "activate"); b.dataset.tip = "Make this version the one that screens the chat."; b.onclick = async () => { try { await api("/api/train/activate", { checkpoint: m.checkpoint }); loadModels(); loadActive(); if (window.refreshActiveModel) window.refreshActiveModel(); if (window.toast) window.toast(`Activated ${m.name}`); } catch (e) { alert(e.message); } }; c.append(b); }
         r.append(c); t.append(r);
       });
     } catch (e) { $("modelTable").textContent = "Could not load models: " + e.message; }
@@ -211,7 +224,7 @@
   async function loadActive() {
     try {
       const m = await api("/api/train/models"); const a = m.models.find((x) => x.checkpoint === m.active);
-      $("postActive").textContent = a ? `${a.name} (${a.source}) · classes: ${a.labels.join(", ")}` : m.active;
+      $("postActive").textContent = a ? `${a.name} v${a.version || 1} (${a.source}) · classes: ${a.labels.join(", ")}` : m.active;
       const fb = await api("/api/train/feedback");
       $("postFeedback").replaceChildren(
         el("div", "", `${fb.n} expert flags from the chat usable for this model` + (fb.skipped ? ` (${fb.skipped} skipped: label outside this model)` : "")),
@@ -240,7 +253,7 @@
       P.job = await api("/api/train/start", { post_train: true, name: $("postName").value, epochs: +$("postEpochs").value, lr: +$("postLr").value,
         init: $("postMode").value, use_feedback: true, extra_upload_id: P.upload?.upload_id || null, include_base_data: $("postBase").checked, oversample: +$("postOversample").value });
       $("postStart").disabled = true;
-      poll(P.job.id, $("postJob"), (j) => { $("postStart").disabled = false; if (j.status === "done") { $("p-results").hidden = false; renderResults($("postResults"), j.result); loadModels(); } });
+      poll(P.job.id, $("postJob"), (j) => { $("postStart").disabled = false; if (j.status === "done") { $("p-results").hidden = false; renderResults($("postResults"), j.result); loadModels(); $("p-results").scrollIntoView({ block: "start" }); if (window.toast) window.toast(j.result.gate && !j.result.gate.passed ? "Candidate trained: the gate found regressions" : "Candidate trained: gate passed"); } });
     } catch (e) { $("postJob").textContent = "Could not start: " + e.message; }
   }
 

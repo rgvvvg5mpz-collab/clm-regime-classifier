@@ -22,6 +22,67 @@ const ALL_NAMES = { none: "nothing", compliant: "nothing", no_flag: "nothing",
   sec_17a3_17a4: "SEC 17a-3/4", reg_sp: "Reg S-P", reg_sid: "Reg S-ID" };
 
 function newId() { return Math.random().toString(36).slice(2, 10); }
+// Tooltips: one floating box for every element with data-tip, positioned in the viewport so
+// sidebars, tables and scroll containers never clip it. Works on hover and keyboard focus.
+(() => {
+  const box = document.createElement("div"); box.id = "tipbox"; box.setAttribute("role", "tooltip");
+  document.addEventListener("DOMContentLoaded", () => document.body.append(box));
+  let current = null;
+  function show(target) {
+    const text = target.getAttribute("data-tip"); if (!text) return;
+    current = target; box.textContent = text; box.classList.add("show");
+    const r = target.getBoundingClientRect(), pad = 8;
+    box.style.left = "0px"; box.style.top = "0px";
+    const w = box.offsetWidth, h = box.offsetHeight;
+    let left = Math.min(Math.max(pad, r.left), window.innerWidth - w - pad);
+    let top = r.bottom + 7;
+    if (top + h > window.innerHeight - pad) top = r.top - h - 7;
+    box.style.left = left + "px"; box.style.top = Math.max(pad, top) + "px";
+  }
+  function hide() { current = null; box.classList.remove("show"); }
+  document.addEventListener("mouseover", (e) => { const t = e.target.closest("[data-tip]"); if (t && t !== current) show(t); else if (!t) hide(); });
+  document.addEventListener("mouseout", (e) => { const t = e.target.closest("[data-tip]"); if (t && !t.contains(e.relatedTarget)) hide(); });
+  document.addEventListener("focusin", (e) => { const t = e.target.closest("[data-tip]"); if (t) show(t); });
+  document.addEventListener("focusout", hide);
+  document.addEventListener("scroll", hide, true);
+  document.addEventListener("click", hide, true);
+})();
+let toastTimer = null;
+function toast(msg) {   // small confirmation in the corner
+  const t = $("toast"); if (!t) return;
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 2600);
+}
+async function refreshActiveModel() {   // header badge + sidebar selector: which checkpoint screens the chat
+  try {
+    const m = await api("/api/train/models");
+    const a = m.models.find((x) => x.checkpoint === m.active);
+    const b = $("activeModel");
+    if (b) b.replaceChildren("Model: ", el("b", "", a ? `${a.name} v${a.version || 1}` : m.active.split("/").pop()));
+    const sel = $("modelSelect");
+    if (sel) {
+      sel.replaceChildren();
+      m.models.slice().reverse().forEach((x) => sel.add(new Option(`${x.name} v${x.version || 1} · ${x.labels.length} classes${x.metrics?.test_macro_f1 != null ? ` · F1 ${x.metrics.test_macro_f1.toFixed(2)}` : ""}`, x.checkpoint)));
+      sel.value = m.active;
+    }
+  } catch { /* cosmetic */ }
+}
+async function switchModel(checkpoint) {
+  try {
+    await api("/api/train/activate", { checkpoint });
+    state.config = await api("/api/config"); state.labels = state.config.labels;
+    updateScopeNote(); refreshActiveModel();
+    if (!$("aboutView").hidden) renderAbout();
+    if (window.trainTabs) { window.trainTabs.loadModels(); window.trainTabs.loadActive(); }
+    toast(`Screening with ${checkpoint.split("/").pop()}`);
+  } catch (e) { alert("Could not switch model: " + e.message); }
+}
+function updateScopeNote() {
+  const names = (u) => (state.config.unit_classes[u] || []).slice(1).map((k) => state.labels[k] || k).join(", ") || "nothing";
+  const note = $("scopeNote");
+  if (note) note.textContent = `User turns can be flagged as: ${names("client_message")}. Assistant turns as: ${names("assistant_response")}.`;
+}
+window.refreshActiveModel = refreshActiveModel;
 function ss(key, val) {   // sessionStorage, tolerant of blocked storage
   try { if (val === undefined) return sessionStorage.getItem(key); sessionStorage.setItem(key, val); }
   catch { return null; }
@@ -72,11 +133,10 @@ async function loadConfig() {
   state.config.presets.forEach((p, i) => sel.add(new Option(p.name, i)));
   sel.onchange = () => { resetChat(); applyPreset(state.config.presets[sel.value]); };
   $("system").value = state.config.system_prompt || "";
-  const names = (u) => state.config.unit_classes[u].slice(1).map((k) => state.labels[k] || k).join(", ");
-  const note = $("scopeNote");
-  if (note) note.textContent = `Your message is checked against ${names("client_message")}. The model's reply is checked against ${names("assistant_response")}.`;
+  updateScopeNote();
   $("apiKey").value = ss("apiKey") || "";
   applyPreset(state.config.presets[0]);
+  refreshActiveModel();
   const h = await api("/api/health");
   setClf(h.classifier_loaded ? "on" : "off");
 }
@@ -199,57 +259,70 @@ function wrapText(e, text, maxChars) {   // crude word-wrap into <tspan>s
 }
 
 function renderAbout() {
+  // Built from the selected checkpoint: its class list, descriptions and speaker masks.
   const labels = state.labels, negative = Object.keys(labels)[0];
   const covered = (k) => k in labels;
+  const desc = state.config.descriptions || {};
+  const info = (k) => [labels[k] || CLASS_INFO[k]?.[0] || k, desc[k] || CLASS_INFO[k]?.[1] || ""];
+  const uc = state.config.unit_classes || {};
+  const lanes = { client_message: (uc.client_message || []).slice(1), assistant_response: (uc.assistant_response || []).slice(1) };
+  // For the regulatory example only: also draw the regimes this checkpoint leaves out, greyed.
+  const isExample = Object.keys(labels).slice(1).every((k) => k in CLASS_INFO);
+  const extra = isExample ? Object.keys(CLASS_INFO).filter((k) => !covered(k)) : [];
+  extra.forEach((k) => (SPEAKER_CLASSES.client_message.includes(k) ? lanes.client_message : lanes.assistant_response).push(k));
   const nCov = Object.keys(labels).length - 1;
-  $("aboutLede").textContent = `The loaded model is the ${nCov + 1}-way checkpoint: it names one of ${nCov} regimes, or ` +
-    `\u201c${labels[negative]}\u201d. Which regimes can apply depends on who is speaking.` +
-    (Object.keys(CLASS_INFO).some((k) => !covered(k)) ? " Greyed classes are outside this model\u2019s scope: that content is left unflagged." : "");
+  const modelName = (state.config.active || "the selected model").split("/").pop().replace(/\.pt$/, "");
+  $("aboutTitle").textContent = `What ${modelName} looks for`;
+  $("aboutLede").textContent = `This model assigns each turn one of ${nCov} classes, or “${labels[negative]}” when none applies. ` +
+    `Which classes a turn can receive depends on who is speaking.` +
+    (extra.length ? " Greyed classes are outside this model’s scope: that content is left unflagged." : "");
 
   const W = 900, lane = 400, boxH = 78, gap = 14, top = 150, left = [40, 460];
-  const rows = Math.max(SPEAKER_CLASSES.client_message.length, SPEAKER_CLASSES.assistant_response.length);
+  const rows = Math.max(1, lanes.client_message.length, lanes.assistant_response.length);
   const H = top + rows * (boxH + gap) + 120;
-  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "How a message is routed to a regime class" });
+  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "How a turn is routed to a class" });
   const defs = svgEl("defs");
   const m = svgEl("marker", { id: "arr", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto" });
   m.append(svgEl("path", { d: "M0,0 L10,5 L0,10 z", class: "arrfill" })); defs.append(m); svg.append(defs);
 
-  // source box
   svg.append(svgEl("rect", { x: W / 2 - 170, y: 16, width: 340, height: 54, rx: 10, class: "dbox" }));
-  svg.append(svgEl("text", { x: W / 2, y: 38, "text-anchor": "middle", class: "dt" }, "One message from the firm\u2019s GenAI chat"));
-  svg.append(svgEl("text", { x: W / 2, y: 58, "text-anchor": "middle", class: "ds" }, "screened on its own, with the speaker known"));
-  // lanes
-  [["client_message", "The client says\u2026", left[0]], ["assistant_response", "The assistant says\u2026", left[1]]].forEach(([unit, title, x]) => {
+  svg.append(svgEl("text", { x: W / 2, y: 38, "text-anchor": "middle", class: "dt" }, "One turn of a conversation"));
+  svg.append(svgEl("text", { x: W / 2, y: 58, "text-anchor": "middle", class: "ds" }, "scored on its own, with the speaker known"));
+  [["client_message", "A user turn…", left[0]], ["assistant_response", "An assistant turn…", left[1]]].forEach(([unit, title, x]) => {
     svg.append(svgEl("path", { d: `M${W / 2 + (x < W / 2 ? -40 : 40)} 70 C${W / 2 + (x < W / 2 ? -40 : 40)} 100 ${x + lane / 2} 90 ${x + lane / 2} 112`, class: "dedge" }));
     svg.append(svgEl("text", { x: x + lane / 2, y: 134, "text-anchor": "middle", class: "dlane" }, title));
-    SPEAKER_CLASSES[unit].forEach((k, i) => {
-      const y = top + i * (boxH + gap), on = covered(k);
-      svg.append(svgEl("rect", { x, y, width: lane, height: boxH, rx: 9, class: on ? "dbox dclass" : "dbox doff" }));
-      const t = svgEl("text", { x: x + 14, y: y + 24, class: on ? "dt" : "dt doff-t" }, CLASS_INFO[k][0] + (on ? "" : "  \u2192 out of scope, no flag"));
-      svg.append(t);
-      const d = svgEl("text", { x: x + 14, y: y + 44, class: on ? "ds" : "ds doff-t" }); wrapText(d, CLASS_INFO[k][1], 62); svg.append(d);
+    if (!lanes[unit].length) svg.append(svgEl("text", { x: x + lane / 2, y: top + 30, "text-anchor": "middle", class: "ds" }, "no classes apply to this speaker"));
+    lanes[unit].forEach((k, i) => {
+      const y = top + i * (boxH + gap), on = covered(k), [nm, ds] = info(k);
+      const box = svgEl("rect", { x, y, width: lane, height: boxH, rx: 9, class: on ? "dbox dclass" : "dbox doff" });
+      box.append(svgEl("title", {}, nm + ": " + ds + (on ? "" : " (not covered by the selected model: left unflagged)")));
+      svg.append(box);
+      svg.append(svgEl("text", { x: x + 14, y: y + 24, class: on ? "dt" : "dt doff-t" }, nm + (on ? "" : "  → out of scope, no flag")));
+      const d = svgEl("text", { x: x + 14, y: y + 44, class: on ? "ds" : "ds doff-t" });
+      wrapText(d, ds.length > 125 ? ds.slice(0, 122) + "…" : ds, 62); svg.append(d);
     });
   });
-  // negative class
   const ny = top + rows * (boxH + gap) + 10;
   svg.append(svgEl("rect", { x: 40, y: ny, width: W - 80, height: 60, rx: 9, class: "dbox dneg" }));
-  svg.append(svgEl("text", { x: W / 2, y: ny + 25, "text-anchor": "middle", class: "dt" }, `${labels[negative]}: nothing to flag`));
-  svg.append(svgEl("text", { x: W / 2, y: ny + 45, "text-anchor": "middle", class: "ds" },
-    "ordinary questions, education, balanced and disclosed answers" + (Object.keys(CLASS_INFO).some((k) => !covered(k)) ? ", and anything outside this model\u2019s scope" : "")));
+  svg.append(svgEl("text", { x: W / 2, y: ny + 25, "text-anchor": "middle", class: "dt" }, `${labels[negative]}: the negative class, nothing to flag`));
+  const nd = desc[negative] || "none of the classes above applies";
+  svg.append(svgEl("text", { x: W / 2, y: ny + 45, "text-anchor": "middle", class: "ds" }, nd.length > 110 ? nd.slice(0, 107) + "…" : nd));
   $("classDiagram").replaceChildren(svg);
 
   const tbl = $("classTable"); tbl.replaceChildren();
-  const hdr = el("tr"); ["Class", "Speaker", "What triggers it", "This model"].forEach((h) => hdr.append(el("th", "", h))); tbl.append(hdr);
+  const hdr = el("tr"); ["Class", "Speaker", "Description the model scores against", "This model"].forEach((h) => hdr.append(el("th", "", h))); tbl.append(hdr);
   const rowFor = (k, speaker) => {
-    const r = el("tr"); const on = covered(k);
-    r.append(el("td", "", CLASS_INFO[k][0]), el("td", "", speaker), el("td", "", CLASS_INFO[k][1]));
-    const c = el("td"); c.append(el("span", "pill " + (on ? "good" : "muted"), on ? "covered" : "out of scope \u2192 " + labels[negative])); r.append(c);
+    const r = el("tr"); const on = covered(k), [nm, ds] = info(k);
+    r.append(el("td", "", nm), el("td", "", speaker), el("td", "", ds));
+    const c = el("td"); c.append(el("span", "pill " + (on ? "good" : "muted"), on ? "covered" : "out of scope → " + labels[negative])); r.append(c);
     return r;
   };
-  SPEAKER_CLASSES.assistant_response.forEach((k) => tbl.append(rowFor(k, "assistant")));
-  SPEAKER_CLASSES.client_message.forEach((k) => tbl.append(rowFor(k, "client")));
+  const both = lanes.assistant_response.filter((k) => lanes.client_message.includes(k));
+  lanes.assistant_response.filter((k) => !both.includes(k)).forEach((k) => tbl.append(rowFor(k, "assistant")));
+  lanes.client_message.filter((k) => !both.includes(k)).forEach((k) => tbl.append(rowFor(k, "user")));
+  both.forEach((k) => tbl.append(rowFor(k, "either")));
   const neg = el("tr"); neg.append(el("td", "", labels[negative]), el("td", "", "either"),
-    el("td", "", "Nothing to flag among the covered regimes"), el("td", "", "always"));
+    el("td", "", desc[negative] || "None of the classes applies"), el("td", "", "always"));
   tbl.append(neg);
 }
 
@@ -258,6 +331,14 @@ function showView(id) {
     b.classList.toggle("on", b.dataset.view === id);
     const v = $(b.dataset.view); if (v) v.hidden = b.dataset.view !== id;
   });
+  // the sidebar's conversation controls belong to the Chat & flag tab only
+  const chat = id === "chatView";
+  $("convSection").hidden = !chat; $("chatOnly").hidden = !chat;
+  const hint = $("sideHint");
+  hint.hidden = chat;
+  hint.textContent = { trainView: "Train a model here; it appears in the Screening model list when done.",
+                       postView: "Post-training starts from the model selected above.",
+                       aboutView: "The diagram describes the model selected above." }[id] || "";
   if (id === "aboutView" && state.config) renderAbout();
 }
 
@@ -269,7 +350,12 @@ function el(tag, cls, text) {
   return e;
 }
 
-function expectedLine(expected, v) {
+function expectedLine(expected, v) {   // tooltip explains the comparison
+  const line = expectedLineInner(expected, v);
+  line.dataset.tip = "What the transcript's author expected for this turn versus what the model said. 'Out of scope' means the expected class is not one this model covers, so it is deliberately not flagged.";
+  return line;
+}
+function expectedLineInner(expected, v) {
   // Compare the transcript's expectation with the verdict; labels the model doesn't cover are "out of scope".
   const exp = expected || "none";
   const nothing = ["none", "compliant", "no_flag"].includes(exp);
@@ -286,8 +372,12 @@ function verdictBlock(turnId, target, text, v, meta = {}) {
   const box = el("div", "verdict");
   const chip = el("span", "chip " + (v.flagged ? "flag" : "ok"),
     v.flagged ? `⚑ ${v.rule}` : "✓ No issue");
-  chip.title = `confidence ${(v.confidence * 100).toFixed(1)}%`;
-  box.append(chip, el("span", "muted", `${(v.confidence * 100).toFixed(0)}%`));
+  chip.dataset.tip = v.flagged
+    ? `The model's verdict for this ${target === "user" ? "user" : "assistant"} turn. Probability ${(v.confidence * 100).toFixed(1)}% that it is ${v.rule}; 'details' shows every class.`
+    : `Nothing to flag among the classes this ${target === "user" ? "user" : "assistant"} turn can trigger (probability ${(v.confidence * 100).toFixed(1)}%).`;
+  const conf = el("span", "muted", `${(v.confidence * 100).toFixed(0)}%`);
+  conf.dataset.tip = "Confidence: the softmax probability of the chosen class. Below ~60% the runner-up is close; open 'details'.";
+  box.append(chip, conf);
   if (meta.expected !== undefined && meta.expected !== null) box.append(expectedLine(meta.expected, v));
 
   const probs = el("div", "probs");
@@ -301,12 +391,14 @@ function verdictBlock(turnId, target, text, v, meta = {}) {
       probs.append(row);
     });
   const toggle = el("button", "linkbtn", "details");
-  toggle.type = "button";
+  toggle.type = "button"; toggle.dataset.tip = "Show the probability of every class for this turn" + (meta.note ? ", and the transcript author's note" : "") + ".";
   toggle.onclick = () => probs.classList.toggle("open");
 
   const kind = v.flagged ? "false_positive" : "false_negative";
   const flagBtn = el("button", "linkbtn", v.flagged ? "Flag false positive" : "Flag false negative");
   flagBtn.type = "button";
+  flagBtn.dataset.tip = v.flagged ? "Disagree? Record that this turn should not have been flagged (or should be a different class). Becomes expert data for Post-train."
+                                  : "Disagree? Record that this turn should have been flagged, and with which class. Becomes expert data for Post-train.";
   flagBtn.onclick = () => openFlag(box, flagBtn, { turnId, target, text, v, kind });
   box.append(toggle, flagBtn, probs);
   return box;
@@ -330,8 +422,8 @@ function openFlag(box, btn, ctx) {
         turn_id: ctx.turnId, target: ctx.target, kind: ctx.kind, text: ctx.text,
         predicted_label: ctx.v.label, correct_label: sel.value || null,
         note: form.querySelector("[name=note]").value || null });
-      form.replaceWith(el("span", "thanks", "Flag recorded - thank you"));
-      btn.remove();
+      form.replaceWith(el("span", "thanks", "Flag recorded"));
+      btn.remove(); toast("Flag recorded: it will appear on the Post-train tab");
     } catch (err) { alert("Could not save flag: " + err.message); }
   };
   box.append(form);
@@ -339,7 +431,9 @@ function openFlag(box, btn, ctx) {
 
 function addBubble(role, text) {
   $("empty")?.remove();
-  const b = el("div", "msg " + role, text);
+  const b = el("div", "msg " + role);
+  if (role === "user" || role === "assistant") b.append(el("div", "who", role === "user" ? "User" : "Assistant"));
+  if (text) b.append(document.createTextNode(text));
   $("messages").append(b);
   b.scrollIntoView({ block: "end" });
   return b;
@@ -347,7 +441,10 @@ function addBubble(role, text) {
 
 function resetChat() {
   state.history = []; state.sessionId = newId();
-  $("messages").replaceChildren(el("div", "empty", "New chat started."));
+  if (!$("messages").querySelector(".msg") && $("empty")?.querySelector(".welcome")) return;   // nothing played yet: keep the welcome card
+  const e = el("div", "empty"); e.id = "empty";
+  e.append(el("p", "muted", $("provider").value === "scripted" ? "Press Play next exchange or Play all." : "Type a message below."));
+  $("messages").replaceChildren(e);
 }
 
 // ---------------------------------------------------------------- one screened turn
@@ -357,7 +454,7 @@ async function runTurn(text, extra = {}) {
   ss("apiKey", $("apiKey").value);
   state.busy = true; $("send").disabled = true; updatePlaybarSafe();
   const userB = addBubble("user", text);
-  const pending = addBubble("assistant typing", prov.provider === "scripted" ? "Screening…" : "Screening and asking the model…");
+  const pending = addBubble("typing", prov.provider === "scripted" ? "Screening…" : "Screening and asking the model…");
   if ($("clfDot").className === "dot") setClf("busy");
   try {
     const turn = await api("/api/chat", {
@@ -405,7 +502,11 @@ async function send(e) {
   await runTurn(text);
 }
 
-document.querySelectorAll(".tab").forEach((b) => b.onclick = () => showView(b.dataset.view));
+document.querySelectorAll(".tab, .topbar .flow button").forEach((b) => b.onclick = () => showView(b.dataset.view));
+$("modelSelect").onchange = (e) => switchModel(e.target.value);
+$("wPlay").onclick = () => { if (state.transcript) playAll(); else showView("chatView"); };
+$("wTrain").onclick = () => showView("trainView");
+$("wAbout").onclick = () => showView("aboutView");
 $("composer").onsubmit = send;
 $("input").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) send(e); });
 $("provider").onchange = () => { syncProvider(); if ($("provider").value === "scripted" && !state.transcript) loadTranscriptUrl("/static/transcripts/demo_conversations.json"); };

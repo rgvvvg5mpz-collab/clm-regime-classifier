@@ -62,7 +62,7 @@ class Prediction:
 
 class RegimeClassifier:
     def __init__(self, checkpoint: str = DEFAULT_CKPT, emb_url: str | None = None,
-                 emb_model: str = "qwen3-8b", device: str = "cpu", embedder=None):
+                 emb_model: str = "qwen3-8b", device: str = "cpu", embedder=None, unit_classes: dict | None = None):
         """``embedder`` lets a caller reuse an already-loaded encoder (the chat server swaps
         checkpoints without reloading Qwen3-8B)."""
         if not os.path.exists(checkpoint):
@@ -74,7 +74,8 @@ class RegimeClassifier:
         self.instructions: str = ck.get("instructions", DEFAULT_INSTRUCTIONS)
         self.labels = list(self.classes)
         self.negative = self.labels[0]
-        self.unit_classes = {u: [self.negative] + [l for l in ls if l in self.classes] for u, ls in UNIT_CLASSES.items()}
+        src = unit_classes if unit_classes is not None else UNIT_CLASSES
+        self.unit_classes = {u: [self.negative] + [l for l in ls if l in self.classes and l != self.negative] for u, ls in src.items()}
         self.heads = HeadPair("regime", checkpoint, device).ensure()
         if embedder is not None:
             self.embedder = embedder

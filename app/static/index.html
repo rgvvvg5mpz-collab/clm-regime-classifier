@@ -3,70 +3,101 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Regime Screening Chat</title>
-  <link rel="stylesheet" href="/static/styles.css?v=8">
+  <title>System 1 Workbench</title>
+  <link rel="stylesheet" href="/static/styles.css?v=13">
 </head>
 <body>
+<header class="topbar">
+  <div class="logo" data-tip="A workbench for System 1 classifiers trained with a contrastive loss (CLM-8B heads on a frozen Qwen3-8B encoder). The regulatory regime screener is the worked example; train your own classes from any labelled text."><span class="mark">S1</span> System 1 Workbench <span class="tagline">contrastive-loss classifiers</span></div>
+  <nav class="flow" aria-label="Exercise steps">
+    <button type="button" data-view="trainView" data-tip="Step 1: train a model from an example dataset or your own labelled file, and read its metrics."><span class="num">1</span>Train</button>
+    <span class="sep">›</span>
+    <button type="button" data-view="chatView" data-tip="Step 2: run conversations through the active model and flag any verdict you disagree with. Flags become expert data."><span class="num">2</span>Chat &amp; flag</button>
+    <span class="sep">›</span>
+    <button type="button" data-view="postView" data-tip="Step 3: fold the flags (and any SME file) back into the model, compare the candidate with the active one, promote it."><span class="num">3</span>Post-train</button>
+  </nav>
+  <div class="model tip-right" id="activeModel" data-tip="The checkpoint currently screening the chat. Change it with the 'Screening model' selector in the sidebar or from the registry.">Model: <b>loading…</b></div>
+</header>
 <div class="layout">
   <aside class="panel" id="sidebar">
-    <h1>Regime Screening Chat</h1>
-    <p class="muted">Every turn is screened by the fine-tuned CLM-8B regime classifier.</p>
-
-    <label>Preset
+    <div id="convSection">
+    <h1>Conversation</h1>
+    <label>Source <i class="info" data-tip="Where the assistant's replies come from. A scripted transcript replays conversations with no LLM or API key (the bundled one is the regulatory example); the other options call a live model.">i</i>
       <select id="preset"></select>
     </label>
-    <label>Conversation source
-      <select id="provider">
-        <option value="scripted">Scripted transcript (no LLM)</option>
-        <option value="anthropic">Anthropic (Claude)</option>
-        <option value="openai_compatible">OpenAI-compatible endpoint</option>
-      </select>
-    </label>
+    <select id="provider" hidden>
+      <option value="scripted">Scripted transcript (no LLM)</option>
+      <option value="anthropic">Anthropic (Claude)</option>
+      <option value="openai_compatible">OpenAI-compatible endpoint</option>
+    </select>
 
     <div id="transcriptPanel" class="subpanel">
       <p class="muted small" id="transcriptInfo">Loading transcript…</p>
-      <label>Conversation
+      <label>Conversation <i class="info" data-tip="Each conversation is replayed one exchange at a time. The count shows how many turns the transcript's author expects to be flagged with some class; 'clean' ones should produce none.">i</i>
         <select id="conv"></select>
       </label>
       <p class="muted small" id="scenario"></p>
-      <label>Upload your own transcript <span class="muted">(.json, see app/transcripts/FORMAT.md)</span>
+      <label>Upload your own transcript <i class="info" data-tip="A .json file in the format described in app/transcripts/FORMAT.md: conversations of alternating user / assistant turns, with optional per-turn 'expected' labels. Parsed in your browser; never stored on the server.">i</i>
         <input id="upload" type="file" accept=".json,application/json">
       </label>
     </div>
 
-    <label id="baseUrlRow">Base URL
+    <label id="baseUrlRow">Base URL <i class="info" data-tip="The endpoint's /v1 root, e.g. http://localhost:11434/v1 for Ollama or http://localhost:8000/v1 for vLLM / LM Studio.">i</i>
       <input id="baseUrl" placeholder="http://localhost:11434/v1">
     </label>
-    <label id="modelRow">Model
+    <label id="modelRow">Model <i class="info" data-tip="The model name the endpoint expects (e.g. claude-opus-5-5, llama3.1).">i</i>
       <input id="model" placeholder="claude-opus-5-5">
     </label>
-    <label id="apiKeyRow">API key <span class="muted">(optional, this tab only)</span>
+    <label id="apiKeyRow">API key <i class="info" data-tip="Optional. Kept only in this browser tab and sent to your own server per request; never written to disk. If empty, the server uses the environment variable named by the preset.">i</i>
       <input id="apiKey" type="password" autocomplete="off" placeholder="uses server env var if empty">
     </label>
-    <label id="systemRow">System prompt
+    <label id="systemRow">System prompt <i class="info" data-tip="Instructions sent to the live model with every turn. Not used in scripted mode.">i</i>
       <textarea id="system" rows="4"></textarea>
     </label>
+    </div>
 
-    <div class="status">
+    <h1>Screener</h1>
+    <label>Screening model <i class="info" data-tip="Any model in the registry: the shipped ones, anything you trained on the Train tab, and every post-trained version. Switching is instant; the encoder stays loaded. The verdict chips, the Classes tab and the flag form all follow the selected model.">i</i>
+      <select id="modelSelect"></select>
+    </label>
+    <div class="status" data-tip="The encoder behind every model: Qwen3-8B (16 GB) is loaded once (15-20 s) and shared by all checkpoints; after that each turn takes well under a second.">
       <span id="clfDot" class="dot"></span>
       <span id="clfStatus">Classifier not loaded</span>
       <button id="warmup" class="secondary">Load</button>
     </div>
-    <button id="newChat" class="secondary">New chat</button>
-    <p class="muted small">Flags you raise are written to <code>app/data/feedback.jsonl</code>.</p>
+    <div id="chatOnly">
+    <button id="newChat" class="secondary" data-tip="Clears the conversation and starts a fresh session id. Flags already recorded are kept.">New chat</button>
+    <p class="muted small">Flags you raise are expert labels: they are written to <code>app/data/feedback.jsonl</code> and feed the Post-train tab.</p>
+    </div>
+    <p class="muted small" id="sideHint" hidden></p>
   </aside>
 
   <main class="chat">
     <nav class="tabs" role="tablist">
-      <button type="button" class="tab on" data-view="chatView" role="tab">Chat</button>
-      <button type="button" class="tab" data-view="aboutView" role="tab">The classes</button>
-      <button type="button" class="tab" data-view="trainView" role="tab">Train</button>
-      <button type="button" class="tab" data-view="postView" role="tab">Post-train</button>
+      <button type="button" class="tab" data-view="trainView" role="tab" data-tip="Step 1: train a fresh model from labelled data and read its metrics."><span class="badge">1</span>Train</button>
+      <button type="button" class="tab on" data-view="chatView" role="tab" data-tip="Step 2: run conversations through the selected model and flag the verdicts you disagree with."><span class="badge">2</span>Chat &amp; flag</button>
+      <button type="button" class="tab" data-view="postView" role="tab" data-tip="Step 3: fine-tune the selected model with expert corrections, gate it against the current one, promote it, and manage versions."><span class="badge">3</span>Post-train</button>
+      <button type="button" class="tab" data-view="aboutView" role="tab" data-tip="Reference: what each class of the selected model means, which speaker can trigger it, and how a turn is scored."><span class="badge">?</span>The classes</button>
     </nav>
+
+    <section id="aboutView" class="about" hidden>
+      <h2 id="aboutTitle">What the selected model looks for</h2>
+      <p class="muted" id="aboutLede"></p>
+      <figure id="classDiagram"></figure>
+      <div class="scroll"><table id="classTable"></table></div>
+      <p class="muted small">Scoring (System 1, contrastive): the text plus a fixed question goes through the frozen Qwen3-8B encoder and a
+        trained state head; each class description goes through a trained action head; the class with the highest scaled cosine wins
+        (softmax over the classes the speaker can receive). The heads are trained with a contrastive loss over the class descriptions:
+        a row's own class is the positive, the other classes are the negatives. Details in <a href="/docs/architecture.html" target="_blank">docs/architecture.html</a>.</p>
+    </section>
+
     <section id="trainView" class="about" hidden>
       <h2>Train a fresh model from your labelled data</h2>
+      <p class="muted">Any text classification works: rows of <code>text</code> + <code>label</code>, your own class names and
+        descriptions. The model is a pair of small contrastive heads over a frozen encoder, so a few hundred rows per class is
+        enough and training takes about a minute.</p>
       <details class="walkthrough" open>
-        <summary><b>Exercise: the regime classifier, end to end</b> (about 15 minutes)</summary>
+        <summary><b>Example use case: the regulatory regime screener, end to end</b> (about 15 minutes)</summary>
         <ol>
           <li><b>Train:</b> below, pick the example dataset <code>regime_5way_sample.csv</code>, keep the prefilled classes, validate, train (about a minute).</li>
           <li><b>Read the metrics:</b> accuracy / precision / recall / F1, the confusion matrix, and the linear-probe baseline. Open the full report.</li>
@@ -76,102 +107,103 @@
         </ol>
       </details>
       <p class="muted">CSV or JSONL with <code>text</code> and <code>label</code> columns; optional <code>speaker</code>
-        (client / assistant) and <code>split</code> (train / val / test). The model needs one class that means
-        "nothing to flag", with its own examples, or it will flag everything.</p>
+        (user / assistant, for conversational data) and <code>split</code> (train / val / test). The model needs one
+        <b>negative class</b> that means "none of the above", with its own examples, or it will assign a class to everything.</p>
       <div class="steps">
-        <div class="step" id="t-step1"><h3>1. Upload</h3>
+        <div class="step" id="t-step1"><h3><span class="n">1</span>Upload <i class="info" data-tip="Pick a shipped example (classes come prefilled) or upload your own CSV / JSONL. Files go to app/data/uploads/ on the server because training needs them.">i</i></h3>
           <div class="row wrap"><label>Use an example dataset <select id="trainExample"><option value="">choose…</option></select></label><span class="muted small">or</span>
-            <input id="trainFile" type="file" accept=".csv,.jsonl,.json,text/csv,application/json"><button id="trainUpload" type="button">Upload</button></div>
+            <input id="trainFile" type="file" accept=".csv,.jsonl,.json,text/csv,application/json"><button id="trainUpload" type="button" data-tip="Parse the file and detect its labels, speaker column and split column.">Upload</button></div>
           <div id="trainSummary" class="small"></div></div>
-        <div class="step" id="t-step2" hidden><h3>2. Define the classes</h3>
-          <p class="muted small">The description is what the model scores each message against; write it as a sentence a compliance analyst would recognise.</p>
+        <div class="step" id="t-step2" hidden><h3><span class="n">2</span>Define the classes <i class="info" data-tip="One row per label found in the data. The description is part of the model: it is the text each input is scored against, so it should define the class in plain words. Speaker limits which classes a user or assistant turn can receive (leave 'either' for non-conversational data). Exactly one class must be the negative ('none of the above') class.">i</i></h3>
+          <p class="muted small">The description is what the model scores each text against (contrastive scoring: the class whose description is closest wins). Write it as one plain sentence that defines the class.</p>
           <div class="scroll"><table id="classSpec"></table></div>
-          <label>Model name <input id="trainName" placeholder="e.g. my_regimes_v1"></label></div>
-        <div class="step" id="t-step3" hidden><h3>3. Validate</h3>
+          <label>Model name <i class="info" data-tip="Used for the checkpoint file and the registry. Re-using a name creates the next version (v2, v3, …).">i</i><input id="trainName" placeholder="e.g. my_regimes_v1"></label></div>
+        <div class="step" id="t-step3" hidden><h3><span class="n">3</span>Validate <i class="info" data-tip="Checks labels against the class table, per-class minimums (10 rows), duplicates and conflicting labels, blocked names (replaced automatically), speaker / label consistency and imbalance, then assigns a stratified 80 / 10 / 10 split unless the file has one.">i</i></h3>
           <button id="trainValidate" type="button">Validate data</button>
           <div id="trainValidation" class="small"></div></div>
-        <div class="step" id="t-step4" hidden><h3>4. Train</h3>
+        <div class="step" id="t-step4" hidden><h3><span class="n">4</span>Train <i class="info" data-tip="Trains only the two small contrastive heads (19 M parameters) on cached encoder embeddings; the encoder itself is frozen. Runs in the background; the page keeps polling.">i</i></h3>
           <div class="row wrap">
-            <label>Epochs <input id="trainEpochs" type="number" value="30" min="1" max="200"></label>
-            <label>Learning rate <input id="trainLr" type="number" value="0.001" step="0.0001" min="0.00001"></label>
-            <label>Initialise from <select id="trainInit"><option value="reference">reference CLM heads</option><option value="active">the active model</option></select></label>
+            <label>Epochs <i class="info" data-tip="Passes over the training rows. The batch size scales with the data so that 30 epochs gives a few hundred optimizer steps; the log shows the count.">i</i><input id="trainEpochs" type="number" value="30" min="1" max="200"></label>
+            <label>Learning rate <i class="info" data-tip="1e-3 worked best for fresh heads in the sweep; use 1e-4 when continuing from an existing model.">i</i><input id="trainLr" type="number" value="0.001" step="0.0001" min="0.00001"></label>
+            <label>Initialise from <i class="info" data-tip="'Reference CLM heads' = the published CLM-v0.1-8B heads (a fresh model). 'The selected model' = continue from the checkpoint currently selected in the sidebar.">i</i><select id="trainInit"><option value="reference">reference CLM heads</option><option value="active">the selected model</option></select></label>
           </div>
           <button id="trainStart" type="button">Train</button>
           <div id="trainJob" class="job"></div></div>
-        <div class="step" id="t-step5" hidden><h3>5. Results</h3><div id="trainResults"></div></div>
+        <div class="step" id="t-step5" hidden><h3><span class="n">5</span>Results <i class="info" data-tip="All numbers are on the held-out test split. Precision / recall / F1 are macro-averaged over classes. The linear probe is a logistic regression on the same embeddings: if it beats the heads, the heads are undertrained.">i</i></h3><div id="trainResults"></div></div>
       </div>
     </section>
+
     <section id="postView" class="about" hidden>
-      <h2>Post-train the active model with expert labels</h2>
-      <p class="muted">Continues the active model's heads on its original training data plus the corrections experts raised
+      <h2>Post-train the selected model with expert labels</h2>
+      <p class="muted">Continues the selected model's heads on its original training data plus the corrections experts raised
         in the chat (false-positive / false-negative flags) and, optionally, an uploaded file of expert-labelled rows.
-        The candidate is then gated against the active model on the frozen test set and the OOD sets before it can be promoted.</p>
+        The candidate is then gated against the current model on the held-out split (and, for the regulatory example, the
+        OOD sets) before it can be promoted.</p>
       <div class="steps">
-        <div class="step"><h3>Active model</h3><div id="postActive" class="small"></div></div>
-        <div class="step"><h3>Expert data</h3>
+        <div class="step"><h3><span class="n">1</span>Selected model <i class="info" data-tip="The checkpoint currently selected in the sidebar. The candidate starts from it (or from the reference heads if you choose 'train fresh').">i</i></h3><div id="postActive" class="small"></div></div>
+        <div class="step"><h3><span class="n">2</span>Expert data <i class="info" data-tip="Two sources: flags raised in the Chat tab (latest flag per turn wins; flags whose label is not in this model are skipped) and an optional file of expert-labelled rows using the model's own labels. Expert rows are split 80 / 20 train / validation and the train part is oversampled.">i</i></h3>
           <div id="postFeedback" class="small"></div>
-          <div class="row wrap"><label>Example corrections <select id="postExample"><option value="">none</option></select></label><span class="muted small">or</span>
-            <input id="postFile" type="file" accept=".csv,.jsonl,.json"><button id="postUpload" type="button" class="secondary">Upload expert rows</button></div>
+          <div class="row wrap"><label>Example corrections <i class="info" data-tip="Shipped files of expert-labelled rows for the example use case. Only usable when the selected model has matching labels.">i</i><select id="postExample"><option value="">none</option></select></label><span class="muted small">or</span>
+            <input id="postFile" type="file" accept=".csv,.jsonl,.json"><button id="postUpload" type="button" class="secondary" data-tip="Validate the file against the active model's labels. No per-class minimums apply to expert rows.">Upload expert rows</button></div>
           <div id="postUploadInfo" class="small"></div></div>
-        <div class="step"><h3>Options</h3>
+        <div class="step"><h3><span class="n">3</span>Options <i class="info" data-tip="Defaults are tuned for a gentle update: a few epochs at a low learning rate, expert rows repeated five times, original training data included so the model does not forget.">i</i></h3>
           <div class="row wrap">
-            <label>Mode <select id="postMode"><option value="active">continue from the active model</option><option value="reference">train fresh from reference heads</option></select></label>
-            <label>Epochs <input id="postEpochs" type="number" value="5" min="1" max="100"></label>
-            <label>Learning rate <input id="postLr" type="number" value="0.0001" step="0.0001" min="0.00001"></label>
-            <label>Oversample expert rows ×<input id="postOversample" type="number" value="5" min="1" max="50"></label>
-            <label class="check"><input id="postBase" type="checkbox" checked> include the model's original training data</label>
+            <label>Mode <i class="info" data-tip="'Continue from the selected model' keeps what it knows and nudges it with the expert rows. 'Train fresh' starts from the reference heads using the same data.">i</i><select id="postMode"><option value="active">continue from the selected model</option><option value="reference">train fresh from reference heads</option></select></label>
+            <label>Epochs <i class="info" data-tip="Few epochs for a gentle update; more if the log reports fewer than 300 optimizer steps.">i</i><input id="postEpochs" type="number" value="5" min="1" max="100"></label>
+            <label>Learning rate <i class="info" data-tip="Low (1e-4) when continuing from a trained model so it does not forget; 1e-3 when training fresh.">i</i><input id="postLr" type="number" value="0.0001" step="0.0001" min="0.00001"></label>
+            <label>Oversample expert rows × <i class="info" data-tip="How many times each expert training row is repeated, so a handful of corrections can move the model.">i</i><input id="postOversample" type="number" value="5" min="1" max="50"></label>
+            <label class="check" data-tip="Keeps the model's original training rows in the mix. Untick to train on expert rows only (usually a bad idea: the model forgets everything else)."><input id="postBase" type="checkbox" checked> include the model's original training data</label>
           </div>
-          <label>Candidate name <input id="postName" placeholder="e.g. 5way_post_v2"></label>
+          <label>Candidate name <i class="info" data-tip="Re-using the selected model's name produces its next version (v2, v3, …).">i</i><input id="postName" placeholder="e.g. 5way_post_v2"></label>
           <button id="postStart" type="button">Train candidate</button>
           <div id="postJob" class="job"></div></div>
-        <div class="step" id="p-results" hidden><h3>Gate and promote</h3><div id="postResults"></div></div>
-        <div class="step"><h3>Model registry</h3><div class="scroll"><table id="modelTable"></table></div></div>
+        <div class="step" id="p-results" hidden><h3><span class="n">4</span>Gate and promote <i class="info" data-tip="The candidate and the current model are scored on the same held-out split (plus the OOD sets when the labels match the regulatory example). A macro-F1 drop over 0.01 or a per-class recall drop over 0.05 counts as a regression; promoting past a regression requires a typed reason, which is logged.">i</i></h3><div id="postResults"></div></div>
+        <div class="step"><h3><span class="n">5</span>Model registry <i class="info" data-tip="Every checkpoint with its version, parent (what it was initialised from), source, classes, test macro-F1 and gate result. ● marks the selected model; 'activate' switches to that version without reloading the encoder.">i</i></h3><div class="scroll"><table id="modelTable"></table></div></div>
       </div>
     </section>
-    <section id="aboutView" class="about" hidden>
-      <h2>What the screener looks for</h2>
-      <p class="muted" id="aboutLede"></p>
-      <figure id="classDiagram"></figure>
-      <div class="scroll"><table id="classTable"></table></div>
-      <p class="muted small">Scoring: the message plus a fixed question goes through the frozen Qwen3-8B encoder and a trained
-        state head; each class description goes through a trained action head; the class with the highest scaled cosine wins
-        (softmax over the classes the speaker can trigger). Details in <a href="/docs/architecture.html" target="_blank">docs/architecture.html</a>.</p>
-    </section>
+
     <div id="chatView" class="chatview">
     <div id="messages" class="messages">
       <div class="empty" id="empty">
-        <h2>Start a conversation</h2>
-        <p class="muted" id="scopeNote">Your message is checked against the client-side regimes;
-          the model's reply against the assistant-side regimes.</p>
+        <div class="welcome">
+          <h2>Screened conversations</h2>
+          <p class="muted" id="scopeNote">Every turn is scored by the selected model.</p>
+          <div class="cards">
+            <button type="button" class="card" id="wPlay" data-tip="Replays the scripted conversation currently selected in the sidebar, one exchange at a time."><b>Play the demo</b>Scripted conversations, no API key needed.</button>
+            <button type="button" class="card" id="wTrain" data-tip="Opens the Train tab, step 1 of the exercise."><b>Train a model</b>Start the 15-minute exercise.</button>
+            <button type="button" class="card" id="wAbout" data-tip="Opens the diagram of the classes the selected model can assign."><b>How it works</b>The classes, the speakers, the scoring.</button>
+          </div>
+        </div>
       </div>
     </div>
     <div id="playbar" class="playbar">
-      <button id="playNext" type="button">Play next exchange</button>
-      <button id="playAll" type="button" class="secondary">Play all</button>
-      <button id="restart" type="button" class="secondary">Restart</button>
+      <button id="playNext" type="button" data-tip="Screens the next user turn and its scripted reply.">Play next exchange</button>
+      <button id="playAll" type="button" class="secondary" data-tip="Plays the rest of the conversation.">Play all</button>
+      <button id="restart" type="button" class="secondary" data-tip="Clears the chat and rewinds this conversation to the start.">Restart</button>
       <span id="playStatus" class="muted small"></span>
     </div>
     <form id="composer" class="composer">
       <textarea id="input" rows="2" placeholder="Type a message… (Enter to send, Shift+Enter for newline)"></textarea>
-      <button id="send" type="submit">Send</button>
+      <button id="send" type="submit" data-tip="Scores your message with the selected model, asks the LLM for a reply, then scores the reply.">Send</button>
     </form>
     </div>
   </main>
 </div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <template id="flagTpl">
   <form class="flagform">
-    <label>Correct label
+    <label>Correct label <i class="info" data-tip="What this turn should have been. Choices are limited to the classes this speaker can trigger.">i</i>
       <select name="correct"></select>
     </label>
-    <label>Note <input name="note" placeholder="optional"></label>
+    <label>Note <input name="note" placeholder="optional: why"></label>
     <div class="row">
-      <button type="submit">Submit flag</button>
+      <button type="submit" data-tip="Appends the correction to app/data/feedback.jsonl for the Post-train tab.">Submit flag</button>
       <button type="button" class="secondary cancel">Cancel</button>
     </div>
   </form>
 </template>
-<script src="/static/app.js?v=6"></script>
-<script src="/static/train.js?v=4"></script>
+<script src="/static/app.js?v=13"></script>
+<script src="/static/train.js?v=6"></script>
 </body>
 </html>

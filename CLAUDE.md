@@ -2,6 +2,8 @@
 
 Orientation for Claude Code sessions in this repo. Human docs are the HTML files in `docs/`.
 
+The product is the **System 1 Workbench** (`app/`): a generic tool for training, using and refining contrastive-loss (CLM-8B) text classifiers from the browser. The regulatory regime classifier below is the shipped worked example, not the product. UI text, tooltips and instructions must stay generic (user turn / assistant turn, classes, negative class); regulatory wording belongs only in the example walkthrough, the example data and the docs about the example.
+
 ## What this is
 A **regime classifier** for broker-dealer GenAI chat with two label sets (`regime_clf/classes.py`, env `REGIME_LABEL_SET`, default `7way`):
 - `7way`: `compliant`, `finra_2210`, `reg_bi`, `finra_4530`, `sec_17a3_17a4`, `reg_sp`, `reg_sid` → `data/`, `clm_regime_7way.pt` (release v1.0)

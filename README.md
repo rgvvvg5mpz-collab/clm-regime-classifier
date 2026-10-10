@@ -1,4 +1,8 @@
-# CLM Regime Classifier
+# System 1 Workbench: contrastive-loss classifiers
+
+A workbench for training, using and refining **System 1 classifiers** built on [CLM-8B](https://huggingface.co/Contrastive-LM/CLM-v0.1-8B): two small heads trained with a contrastive loss over class descriptions, on a frozen Qwen3-8B encoder. Upload labelled text, define your classes, train in about a minute, use the model in a screened chat, flag mistakes, and fold the corrections back in as a new, gated, versioned model. The chat UI (`app/`) has four tabs: Train, Chat & flag, Post-train, and a reference tab for the selected model's classes; any registry model can be selected from the sidebar.
+
+## The worked example: a regulatory regime classifier
 
 A classifier for a broker-dealer's GenAI chat channel. Given a message, it names the securities-regulation regime the message implicates, or flags nothing. Two label sets: **5-way** (`no_flag`, FINRA 2210, Reg BI, FINRA 4530, SEC 17a-3/4; Reg S-P and Reg S-ID content is out of class and left unflagged) and **7-way** (`compliant` plus all six regimes). It's built on [CLM-8B](https://huggingface.co/Contrastive-LM/CLM-v0.1-8B) (Stanford/NVIDIA contrastive language model), with fine-tuned projection heads on a frozen Qwen3-8B encoder, and trained on the [RegModels](https://github.com/rgvvvg5mpz-collab/RegModels) datasets.
 

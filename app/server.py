@@ -45,7 +45,9 @@ def classifier():
         if _clf is None:
             from inference import RegimeClassifier
             c = CONFIG["classifier"]
-            _clf = RegimeClassifier(os.path.join(ROOT, c["checkpoint"]), emb_url=c.get("emb_url") or None)
+            entry = training.registry_entry_for(c["checkpoint"]) or {}
+            _clf = RegimeClassifier(os.path.join(ROOT, c["checkpoint"]), emb_url=c.get("emb_url") or None,
+                                    unit_classes=entry.get("unit_classes"))
         return _clf
 
 
@@ -111,10 +113,11 @@ def index():
 
 @app.get("/api/config")
 def get_config():
-    labels, unit_classes = _label_space()
+    labels, unit_classes, descriptions = _label_space()
     return {"presets": CONFIG["presets"], "system_prompt": CONFIG.get("system_prompt", ""),
             "on_flagged_response": CONFIG["screening"].get("on_flagged_response", "warn"),
-            "labels": labels, "unit_classes": unit_classes}
+            "labels": labels, "unit_classes": unit_classes, "descriptions": descriptions,
+            "active": CONFIG["classifier"]["checkpoint"]}
 
 
 def _label_space():
@@ -123,13 +126,20 @@ def _label_space():
     import torch
     from inference import RULE_NAMES, UNIT_CLASSES
     if _clf is not None:
-        labels = _clf.labels
+        classes = dict(_clf.classes)
+        unit = getattr(_clf, "unit_classes", None)
     else:
         ck = torch.load(os.path.join(ROOT, CONFIG["classifier"]["checkpoint"]), map_location="cpu")
-        labels = list(ck["classes"])
-    neg = labels[0]
-    return ({l: RULE_NAMES.get(l, l) for l in labels},
-            {u: [neg] + [l for l in ls if l in labels] for u, ls in UNIT_CLASSES.items()})
+        classes = dict(ck["classes"]); unit = None
+    labels = list(classes); neg = labels[0]
+    # user-trained models carry their own display names and speaker masks in the registry
+    entry = training.registry_entry_for(CONFIG["classifier"]["checkpoint"]) or {}
+    names = entry.get("names") or {}
+    if entry.get("unit_classes"):
+        unit = {u: [neg] + [l for l in ls if l in classes] for u, ls in entry["unit_classes"].items()}
+    if unit is None:
+        unit = {u: [neg] + [l for l in ls if l in classes] for u, ls in UNIT_CLASSES.items()}
+    return ({l: names.get(l) or RULE_NAMES.get(l, l) for l in labels}, unit, classes)
 
 
 @app.get("/api/health")
@@ -298,9 +308,11 @@ def train_activate(req: ActivateRequest):
     if not os.path.exists(path):
         raise HTTPException(404, f"{req.checkpoint} not found")
     from inference import RegimeClassifier
+    entry = training.registry_entry_for(req.checkpoint) or {}
     with _clf_lock:
         emb = _clf.embedder if _clf is not None else None
-        _clf = RegimeClassifier(path, emb_url=CONFIG["classifier"].get("emb_url") or None, embedder=emb)
+        _clf = RegimeClassifier(path, emb_url=CONFIG["classifier"].get("emb_url") or None, embedder=emb,
+                                unit_classes=entry.get("unit_classes"))
     CONFIG["classifier"]["checkpoint"] = req.checkpoint
     append_jsonl(os.path.join(ROOT, "app", "data", "promotions.jsonl"),
                  {"ts": time.time(), "checkpoint": req.checkpoint, "reason": req.reason})

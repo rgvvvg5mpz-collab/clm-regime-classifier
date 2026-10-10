@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Chat UI Dev README</title>
+<title>System 1 Workbench: UI Dev README</title>
 <link rel="stylesheet" href="../docs/style.css">
 </head>
 <body><div class="wrap">
@@ -16,8 +16,10 @@
   <a href="../Tests/index.html">Test runs</a>
 </nav>
 
-<h1>Chat UI: developer README</h1>
-<p class="lede">A chat front end with two conversation sources: a <b>scripted transcript</b> replayed turn by turn (the
+<h1>System 1 Workbench (chat UI): developer README</h1>
+<p class="lede">The UI is generic: any model in the registry (shipped, trained on the Train tab, or post-trained) can be selected from
+the sidebar, and the verdict chips, flag form and Classes tab follow the selected checkpoint. The regulatory regime screener is the
+worked example that ships with it. A chat front end with two conversation sources: a <b>scripted transcript</b> replayed turn by turn (the
 default, for demos: no LLM or API key needed), or a <b>live LLM</b> (Claude via the Anthropic SDK, or any OpenAI-compatible
 endpoint). Every turn is screened by the regime classifier, and users can flag false positives and false negatives,
 which are written to a file.</p>
