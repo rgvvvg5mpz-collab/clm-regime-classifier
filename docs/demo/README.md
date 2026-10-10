@@ -3,7 +3,7 @@
 **[Download `clasp_demo.mp4`](https://github.com/rgvvvg5mpz-collab/clasp/releases/download/demo-v1/clasp_demo.mp4)**
 ([release `demo-v1`](https://github.com/rgvvvg5mpz-collab/clasp/releases/tag/demo-v1)): 9 min 27 s, 1080p H.264,
 narrated by macOS Ava (Premium), with an English subtitle track (also here as [`clasp_demo.srt`](clasp_demo.srt)).
-53 MB, so it is a release asset rather than a file in git; `scripts/setup.sh --with-video` saves it here.
+52 MB, so it is a release asset rather than a file in git; `scripts/setup.sh --with-video` saves it here.
 
 The first third explains what CLASP is and how it works (slides); the rest is a recorded walkthrough of the
 live workbench, tab by tab, using the regulatory example.
