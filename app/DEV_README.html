@@ -55,6 +55,14 @@ an OpenAI-compatible one.</p>
 from the checkpoint (<code>/api/config</code> → <code>labels</code>, <code>unit_classes</code>), so the verdict chips, the
 flag form and the scope note adapt automatically.</p>
 
+<h2>1. Where data comes from</h2>
+<p>Every file picker in the UI lists the data already in the project (<code>GET /api/files</code>), grouped by folder:
+<code>data/</code> (your files; empty by default), <code>app/examples/</code>, <code>app/static/transcripts/</code>, datasets curated on
+tab 0 (<code>app/data/curation/</code>), and the regulatory example's splits under <code>regime_clf/</code>. Selecting one loads it
+server-side (<code>POST /api/train/use_project_file</code>, <code>GET /api/files/transcript</code>); paths are resolved and must sit inside
+one of those folders. A sibling <code>&lt;name&gt;.spec.json</code> prefills the class table. "Upload from your computer" remains as a
+fallback (browsers cannot point a file dialog at a folder). Files named <code>*.private.*</code> are gitignored.</p>
+
 <h2>1a. Data curation tab (step 0)</h2>
 <p>Runs the <b>Claude Code CLI</b> headlessly on the server to research a topic and write a labelled dataset from a prompt.
 Each run gets its own folder <code>app/data/curation/&lt;job&gt;/</code>; Claude Code is given a fixed output contract

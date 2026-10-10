@@ -105,6 +105,15 @@ function applyPreset(p) {
   syncProvider();
   if (p.provider === "scripted" && p.transcript) loadTranscriptUrl(p.transcript);
 }
+async function loadTranscriptList() {   // transcript files in the project
+  try {
+    const files = (await api("/api/files")).filter((f) => f.kind === "transcript");
+    const sel = $("transcriptFile"); sel.replaceChildren();
+    files.forEach((f) => sel.add(new Option(`${f.name} (${f.count} conversations)`, f.path)));
+    const def = files.find((f) => f.path.endsWith("demo_conversations.json"));
+    if (def) sel.value = def.path;
+  } catch { /* optional */ }
+}
 function syncProvider() {
   const prov = $("provider").value;
   const scripted = prov === "scripted";
@@ -515,6 +524,11 @@ $("warmup").onclick = warmup;
 $("newChat").onclick = () => { resetChat(); if (state.transcript) { state.turnIdx = 0; updatePlaybar(); } };
 $("conv").onchange = (e) => selectConversation(e.target.value);
 $("upload").onchange = onUpload;
+$("transcriptFile").onchange = async (e) => {
+  try { setTranscript(await api("/api/files/transcript?path=" + encodeURIComponent(e.target.value)), e.target.value.split("/").pop()); }
+  catch (err) { $("transcriptInfo").textContent = "Could not load transcript: " + err.message; }
+};
+loadTranscriptList();
 $("playNext").onclick = playNext;
 $("playAll").onclick = playAll;
 $("restart").onclick = () => selectConversation(state.convIdx);

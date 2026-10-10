@@ -184,3 +184,6 @@ ol.feed .ico { color: var(--muted); text-align: center; }
 ol.feed li.tool .ico { color: var(--brand); } ol.feed li.done .ico { color: var(--ok); } ol.feed li.error, ol.feed li.denied { color: var(--flag); }
 ol.feed li.say { color: var(--text); font-style: italic; }
 pre.notes { white-space: pre-wrap; font-size: 12px; background: var(--code-bg); padding: 10px; border-radius: 8px; max-height: 280px; overflow: auto; }
+
+details.local { margin-top: 2px; } details.local summary { cursor: pointer; color: var(--muted); }
+details.local[open] summary { margin-bottom: 6px; }

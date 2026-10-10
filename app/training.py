@@ -113,6 +113,67 @@ def parse_upload(filename: str, data: bytes) -> dict:
     return summary
 
 
+# Folders the "Project data" pickers list, in display order: (relative path, group label, recursive)
+PROJECT_DATA = [("data", "Your data (data/)", True), ("app/examples", "Examples (app/examples/)", False),
+                ("app/static/transcripts", "Chat transcripts (app/static/transcripts/)", False),
+                ("app/data/curation", "Curated by Claude Code (app/data/curation/)", True),
+                ("regime_clf/data_5way", "Regulatory example, 5-way (regime_clf/data_5way/)", False),
+                ("regime_clf/data", "Regulatory example, 7-way (regime_clf/data/)", False),
+                ("regime_clf/ood", "Regulatory example, OOD sets (regime_clf/ood/)", False)]
+DATA_EXT = (".csv", ".jsonl", ".json")
+
+
+def project_files() -> list[dict]:
+    """Data files inside the project, grouped for the pickers. .json = transcript, .csv/.jsonl = rows."""
+    out = []
+    for rel, group, recursive in PROJECT_DATA:
+        base = os.path.join(ROOT, rel)
+        if not os.path.isdir(base):
+            continue
+        walker = os.walk(base) if recursive else [(base, [], os.listdir(base))]
+        for d, _, files in walker:
+            for f in sorted(files):
+                if not f.endswith(DATA_EXT) or f.endswith(".spec.json") or f in ("classes.json", "summary.json", "spec.json"):
+                    continue
+                if "raw_" in f or f.startswith("prompts"):
+                    continue
+                p = os.path.join(d, f)
+                kind = "transcript" if f.endswith(".json") else "rows"
+                try:
+                    n = sum(1 for _ in open(p)) - (1 if f.endswith(".csv") else 0) if kind == "rows" else len(json.load(open(p)).get("conversations", []))
+                except (OSError, ValueError, AttributeError):
+                    continue
+                out.append({"path": os.path.relpath(p, ROOT), "name": os.path.relpath(p, base), "group": group, "kind": kind,
+                            "count": n, "expert": "expert" in f or "correction" in f,
+                            "has_spec": os.path.exists(os.path.splitext(p)[0] + ".spec.json")})
+    return out
+
+
+def _safe_project_path(rel: str) -> str:
+    p = os.path.realpath(os.path.join(ROOT, rel))
+    if not any(p.startswith(os.path.realpath(os.path.join(ROOT, r)) + os.sep) for r, _, _ in PROJECT_DATA):
+        raise FileNotFoundError(f"{rel} is not in a project data folder")
+    if not os.path.isfile(p) or not p.endswith(DATA_EXT):
+        raise FileNotFoundError(f"{rel} not found")
+    return p
+
+
+def use_project_file(rel: str) -> dict:
+    """Stage a project data file as an upload (rows), prefilling the class table from a sibling .spec.json."""
+    p = _safe_project_path(rel)
+    summary = parse_upload(os.path.basename(p), open(p, "rb").read())
+    spec_p = os.path.splitext(p)[0] + ".spec.json"
+    if os.path.exists(spec_p):
+        summary["spec"] = json.load(open(spec_p))["spec"]
+    summary["example"] = os.path.basename(p)
+    return summary
+
+
+def read_project_transcript(rel: str) -> dict:
+    p = _safe_project_path(rel)
+    return json.load(open(p))
+
+
 def examples() -> list[dict]:
     """Datasets shipped in app/examples/, each optionally with <name>.spec.json (prefilled classes)."""
     out = []

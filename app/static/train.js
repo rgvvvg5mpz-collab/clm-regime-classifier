@@ -34,12 +34,23 @@
   }
 
   // ---------------------------------------------------------------- Train tab
-  async function loadExamples() {
+  async function loadExamples() {   // "Project data" pickers: files in data/, app/examples/, curated runs, example splits
     try {
-      const ex = await api("/api/train/examples");
-      ex.filter((e) => e.kind === "train").forEach((e) => $("trainExample").add(new Option(`${e.name} (${e.rows.toLocaleString()} rows${e.has_spec ? ", classes prefilled" : ""})`, e.name)));
-      ex.filter((e) => e.kind === "expert").forEach((e) => $("postExample").add(new Option(`${e.name} (${e.rows} rows)`, e.name)));
-    } catch (e) { /* examples are optional */ }
+      const files = (await api("/api/files")).filter((f) => f.kind === "rows");
+      [["trainExample", (f) => !f.expert], ["postExample", (f) => f.expert || f.group.startsWith("Your data") || f.group.startsWith("Curated")]].forEach(([id, keep]) => {
+        const sel = $(id); const first = sel.options[0]; sel.replaceChildren(first);
+        const groups = {};
+        if (!files.some((f) => f.group.startsWith("Your data"))) {   // show where to put files even when the folder is empty
+          const g = document.createElement("optgroup"); g.label = "Your data (data/)";
+          const o = new Option("empty: drop .csv / .jsonl files into the project's data/ folder", ""); o.disabled = true;
+          g.append(o); sel.append(g);
+        }
+        files.filter(keep).forEach((f) => {
+          if (!groups[f.group]) { groups[f.group] = document.createElement("optgroup"); groups[f.group].label = f.group; sel.append(groups[f.group]); }
+          groups[f.group].append(new Option(`${f.name} (${f.count.toLocaleString()} rows${f.has_spec ? ", classes prefilled" : ""})`, f.path));
+        });
+      });
+    } catch (e) { /* pickers are optional */ }
   }
   async function doUpload() {
     const f = $("trainFile").files[0];
@@ -47,7 +58,7 @@
     if (!f && !ex) { alert("Choose an example dataset or a CSV / JSONL file first."); return; }
     $("trainSummary").textContent = "Loading…";
     try {
-      showUpload(f ? await upload(f) : await api("/api/train/use_example", { name: ex }), f ? f.name : ex);
+      showUpload(f ? await upload(f) : await api("/api/train/use_project_file", { path: ex }), f ? f.name : ex.split("/").pop());
     } catch (e) { $("trainSummary").textContent = "Upload failed: " + e.message; }
   }
   function showUpload(u, nameHint) {   // also used by the Data curation tab's "Send to Train"
@@ -239,7 +250,7 @@
     if (!f && !ex) { alert("Choose an example or a file first."); return; }
     $("postUploadInfo").textContent = "Loading…";
     try {
-      const u = f ? await upload(f) : await api("/api/train/use_example", { name: ex });
+      const u = f ? await upload(f) : await api("/api/train/use_project_file", { path: ex });
       const m = await api("/api/train/models"); const a = m.models.find((x) => x.checkpoint === m.active);
       const unknown = Object.keys(u.labels).filter((l) => !a.labels.includes(l));
       if (unknown.length) { $("postUploadInfo").textContent = `Labels not in the active model: ${unknown.join(", ")}. Expert rows must use the model's own labels (${a.labels.join(", ")}).`; return; }
@@ -265,5 +276,6 @@
   $("trainUpload").onclick = doUpload; $("trainValidate").onclick = doValidate; $("trainStart").onclick = doTrain;
   $("postUpload").onclick = postUpload; $("postStart").onclick = postStart;
   document.querySelector('.tab[data-view="postView"]').addEventListener("click", () => { loadActive(); loadModels(); });
-  window.trainTabs = { loadModels, loadActive, showUpload };
+  window.trainTabs = { loadModels, loadActive, showUpload, loadExamples };
+  document.querySelectorAll('[data-view="trainView"], [data-view="postView"]').forEach((b) => b.addEventListener("click", loadExamples));
 })();

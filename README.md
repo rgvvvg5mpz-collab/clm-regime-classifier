@@ -25,6 +25,8 @@ A classifier for a broker-dealer's GenAI chat channel. Given a message, it names
 
 Plan around the OOD numbers. The 5-way model's higher OOD scores come from no longer scoring the two hardest regimes, not from retraining (last column of the first table). Explicit, easy-to-read messages are no easier for either model than hard ones: the drop comes from distribution shift, not difficulty. See [`Tests/`](Tests/index.html) for every run.
 
+**Your data.** Put labelled `.csv` / `.jsonl` files (and chat transcripts as `.json`) in [`data/`](data/README.md); they appear at the top of the workbench's **Project data** pickers, next to the shipped examples and curated datasets. No upload needed.
+
 **Documentation (HTML).** Open the files locally, or view them via GitHub Pages / htmlpreview:
 - [Overview](docs/README.html) · [Methodology](docs/methodology.html) · [Architecture](docs/architecture.html)
 - [Developer handoff guide and improvements](docs/developer_guide.html) · [Chat UI dev README](app/DEV_README.html)

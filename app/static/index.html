@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>System 1 Workbench</title>
-  <link rel="stylesheet" href="/static/styles.css?v=14">
+  <link rel="stylesheet" href="/static/styles.css?v=15">
 </head>
 <body>
 <header class="topbar">
@@ -39,9 +39,11 @@
         <select id="conv"></select>
       </label>
       <p class="muted small" id="scenario"></p>
-      <label>Upload your own transcript <i class="info" data-tip="A .json file in the format described in app/transcripts/FORMAT.md: conversations of alternating user / assistant turns, with optional per-turn 'expected' labels. Parsed in your browser; never stored on the server.">i</i>
-        <input id="upload" type="file" accept=".json,application/json">
+      <label>Transcript file <i class="info" data-tip="Transcripts in the project (app/static/transcripts/ and any .json in data/), in the format of app/transcripts/FORMAT.md.">i</i>
+        <select id="transcriptFile"></select>
       </label>
+      <details class="local"><summary class="small">or upload from your computer</summary>
+        <input id="upload" type="file" accept=".json,application/json"></details>
     </div>
 
     <label id="baseUrlRow">Base URL <i class="info" data-tip="The endpoint's /v1 root, e.g. http://localhost:11434/v1 for Ollama or http://localhost:8000/v1 for vLLM / LM Studio.">i</i>
@@ -148,8 +150,9 @@
         <b>negative class</b> that means "none of the above", with its own examples, or it will assign a class to everything.</p>
       <div class="steps">
         <div class="step" id="t-step1"><h3><span class="n">1</span>Upload <i class="info" data-tip="Pick a shipped example (classes come prefilled) or upload your own CSV / JSONL. Files go to app/data/uploads/ on the server because training needs them.">i</i></h3>
-          <div class="row wrap"><label>Use an example dataset <select id="trainExample"><option value="">choose…</option></select></label><span class="muted small">or</span>
-            <input id="trainFile" type="file" accept=".csv,.jsonl,.json,text/csv,application/json"><button id="trainUpload" type="button" data-tip="Parse the file and detect its labels, speaker column and split column.">Upload</button></div>
+          <label>Project data <i class="info" data-tip="Data files already in the project: your files in data/, the shipped examples, datasets curated on tab 0, and the regulatory example's splits. Pick one to load it; no upload needed.">i</i><select id="trainExample"><option value="">choose a file in the project…</option></select></label>
+          <details class="local"><summary class="small">or upload from your computer</summary>
+            <div class="row wrap"><input id="trainFile" type="file" accept=".csv,.jsonl,.json,text/csv,application/json"><button id="trainUpload" type="button" class="secondary" data-tip="Parse the file and detect its labels, speaker column and split column.">Upload</button></div></details>
           <div id="trainSummary" class="small"></div></div>
         <div class="step" id="t-step2" hidden><h3><span class="n">2</span>Define the classes <i class="info" data-tip="One row per label found in the data. The description is part of the model: it is the text each input is scored against, so it should define the class in plain words. Speaker limits which classes a user or assistant turn can receive (leave 'either' for non-conversational data). Exactly one class must be the negative ('none of the above') class.">i</i></h3>
           <p class="muted small">The description is what the model scores each text against (contrastive scoring: the class whose description is closest wins). Write it as one plain sentence that defines the class.</p>
@@ -180,8 +183,9 @@
         <div class="step"><h3><span class="n">1</span>Selected model <i class="info" data-tip="The checkpoint currently selected in the sidebar. The candidate starts from it (or from the reference heads if you choose 'train fresh').">i</i></h3><div id="postActive" class="small"></div></div>
         <div class="step"><h3><span class="n">2</span>Expert data <i class="info" data-tip="Two sources: flags raised in the Chat tab (latest flag per turn wins; flags whose label is not in this model are skipped) and an optional file of expert-labelled rows using the model's own labels. Expert rows are split 80 / 20 train / validation and the train part is oversampled.">i</i></h3>
           <div id="postFeedback" class="small"></div>
-          <div class="row wrap"><label>Example corrections <i class="info" data-tip="Shipped files of expert-labelled rows for the example use case. Only usable when the selected model has matching labels.">i</i><select id="postExample"><option value="">none</option></select></label><span class="muted small">or</span>
-            <input id="postFile" type="file" accept=".csv,.jsonl,.json"><button id="postUpload" type="button" class="secondary" data-tip="Validate the file against the active model's labels. No per-class minimums apply to expert rows.">Upload expert rows</button></div>
+          <label>Expert rows from the project <i class="info" data-tip="Files of expert-labelled rows in the project (data/, the shipped corrections, curated datasets). Only usable when their labels match the selected model's.">i</i><select id="postExample"><option value="">none</option></select></label>
+          <details class="local"><summary class="small">or upload from your computer</summary>
+            <div class="row wrap"><input id="postFile" type="file" accept=".csv,.jsonl,.json"><button id="postUpload" type="button" class="secondary" data-tip="Validate the file against the selected model's labels. No per-class minimums apply to expert rows.">Upload expert rows</button></div></details>
           <div id="postUploadInfo" class="small"></div></div>
         <div class="step"><h3><span class="n">3</span>Options <i class="info" data-tip="Defaults are tuned for a gentle update: a few epochs at a low learning rate, expert rows repeated five times, original training data included so the model does not forget.">i</i></h3>
           <div class="row wrap">
@@ -240,8 +244,8 @@
     </div>
   </form>
 </template>
-<script src="/static/app.js?v=14"></script>
-<script src="/static/train.js?v=7"></script>
+<script src="/static/app.js?v=15"></script>
+<script src="/static/train.js?v=9"></script>
 <script src="/static/curate.js?v=1"></script>
 </body>
 </html>

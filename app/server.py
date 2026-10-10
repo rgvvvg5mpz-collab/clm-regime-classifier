@@ -298,6 +298,34 @@ async def train_upload(file: UploadFile = File(...)):
         raise HTTPException(400, str(e))
 
 
+@app.get("/api/files")
+def project_files():
+    """Data files inside the project, for the 'Project data' pickers."""
+    return training.project_files()
+
+
+class ProjectFileRequest(BaseModel):
+    path: str
+
+
+@app.post("/api/train/use_project_file")
+def train_use_project_file(req: ProjectFileRequest):
+    try:
+        return training.use_project_file(req.path)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.get("/api/files/transcript")
+def project_transcript(path: str):
+    try:
+        return training.read_project_transcript(path)
+    except (FileNotFoundError, ValueError) as e:
+        raise HTTPException(404, str(e))
+
+
 @app.get("/api/train/examples")
 def train_examples():
     return training.examples()

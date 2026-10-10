@@ -15,3 +15,4 @@ app/data/
 
 # local editor / tool state
 .claude/settings.local.json
+*.private.*
