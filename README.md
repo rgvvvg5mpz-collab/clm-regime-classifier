@@ -14,7 +14,7 @@ The browser UI covers the whole loop:
 
 Every model is versioned in a registry, and any version can be selected from the sidebar.
 
-**▶ Watch the walkthrough:** [`docs/demo/clasp_demo.mp4`](docs/demo/clasp_demo.mp4) (9½ minutes, 1080p, narrated, with chapters and subtitles). The slides are [`docs/demo/slides.html`](docs/demo/slides.html); see [`docs/demo/`](docs/demo/README.md) to regenerate both.
+**▶ Watch the walkthrough:** [download `clasp_demo.mp4`](https://github.com/rgvvvg5mpz-collab/clm-regime-classifier/releases/download/demo-v1/clasp_demo.mp4) (9½ minutes, 1080p, narrated, with chapters and subtitles; [release page](https://github.com/rgvvvg5mpz-collab/clm-regime-classifier/releases/tag/demo-v1)). The slides are [`docs/demo/slides.html`](docs/demo/slides.html). `scripts/setup.sh --with-video` saves the video to `docs/demo/` for offline use; see [`docs/demo/`](docs/demo/README.md) to regenerate it.
 
 ## Run it
 

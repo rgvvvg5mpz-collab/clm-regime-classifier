@@ -16,3 +16,6 @@ app/data/
 # local editor / tool state
 .claude/settings.local.json
 *.private.*
+
+# walkthrough video: a release asset (demo-v1), fetched by scripts/setup.sh --with-video
+docs/demo/*.mp4

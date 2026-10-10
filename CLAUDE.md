@@ -41,7 +41,7 @@ The **regulatory regime screener** (`examples/regulatory/`) is the shipped worke
   - `transcripts/demo_conversations.json`: the chat demo.
 - `models/`: `*.pt` (gitignored; the shipped ones are release assets) + `*.meta.json` (tracked).
 - `data/`: the user's files (`*.private.*` gitignored).
-- `scripts/`: `setup.sh`, `run_ui.sh`; `scripts/demo/` builds the walkthrough video (`make_demo.py`: narration in `SCENES`, capture via Playwright + Chrome, macOS `say` voice; `render.py`: camera / spotlight / crossfade / chapter cards; `write_readme.py`). Output in `docs/demo/` (`clasp_demo.mp4`, `.srt`, `slides.html`). Rebuild after UI changes: run the UI with `--mock-curation`, then `make_demo.py`; it restores all app state it touches.
+- `scripts/`: `setup.sh`, `run_ui.sh`; `scripts/demo/` builds the walkthrough video (`make_demo.py`: narration in `SCENES`, capture via Playwright + Chrome, macOS `say` voice; `render.py`: camera / spotlight / crossfade / chapter cards; `write_readme.py`). Output in `docs/demo/` (`slides.html`, `.srt` tracked; `clasp_demo.mp4` is gitignored and published as release asset **demo-v1**, fetched by `setup.sh --with-video`). Rebuild after UI changes: run the UI with `--mock-curation`, then `make_demo.py`; it restores all app state it touches.
 - `Tests/<YYYY-MM-DD>_<name>/`: one folder per run (`report.html`, optional hand-written `notes.html`). `Tests/make_reports.py` regenerates all reports, `index.html` and `METRICS.md`; quote numbers from `METRICS.md`.
 - `third_party/CLM` (gitignored): github.com/Contrastive-LM/CLM, installed `--no-deps -e`.
 

@@ -3,6 +3,7 @@
 #
 #   scripts/setup.sh                 # everything, including the 16 GB encoder download
 #   scripts/setup.sh --skip-encoder  # let the encoder download on first use instead
+#   scripts/setup.sh --with-video    # also download the walkthrough video (~53 MB) into docs/demo/
 #
 # Needs: Python 3.10+, git, curl, ~20 GB free disk. Runs best on Apple Silicon with 24 GB+
 # unified memory, or a CUDA GPU with 24 GB+.
@@ -10,10 +11,12 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 SKIP_ENCODER=0
+WITH_VIDEO=0
 for a in "$@"; do
   case "$a" in
     --skip-encoder) SKIP_ENCODER=1 ;;
-    -h|--help) sed -n '2,9p' "$0"; exit 0 ;;
+    --with-video) WITH_VIDEO=1 ;;
+    -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
     *) echo "unknown option: $a" >&2; exit 2 ;;
   esac
 done
@@ -58,6 +61,14 @@ fetch() {   # fetch <release tag> <asset>, then verify the published checksum
 }
 fetch v1.1 clm_regime_5way.pt
 fetch v1.0 clm_regime_7way.pt
+
+if [ "$WITH_VIDEO" = 1 ]; then
+  step "Walkthrough video (docs/demo/clasp_demo.mp4, ~53 MB)"
+  f=docs/demo/clasp_demo.mp4
+  if [ ! -s "$f" ]; then curl -fL --progress-bar -o "$f.part" "$REPO_URL/releases/download/demo-v1/clasp_demo.mp4" && mv "$f.part" "$f"; fi
+  want="$(curl -fsL "$REPO_URL/releases/download/demo-v1/clasp_demo.mp4.sha256" 2>/dev/null | cut -d' ' -f1 || true)"
+  if [ -n "$want" ] && [ "$want" != "$(sha256 "$f")" ]; then echo "checksum mismatch for $f (a newer local build?); delete it to re-download" >&2; else echo "$f ok"; fi
+fi
 
 step "Encoder Qwen/Qwen3-8B (~16 GB, Hugging Face cache)"
 if [ "$SKIP_ENCODER" = 1 ]; then
