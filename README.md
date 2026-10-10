@@ -14,6 +14,8 @@ The browser UI covers the whole loop:
 
 Every model is versioned in a registry, and any version can be selected from the sidebar.
 
+**▶ Watch the walkthrough:** [`docs/demo/clasp_demo.mp4`](docs/demo/clasp_demo.mp4) (9½ minutes, 1080p, narrated, with chapters and subtitles). The slides are [`docs/demo/slides.html`](docs/demo/slides.html); see [`docs/demo/`](docs/demo/README.md) to regenerate both.
+
 ## Run it
 
 ```bash

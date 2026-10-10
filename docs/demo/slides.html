@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CLASP Slides</title>
+<style>
+  /* A self-contained 16:9 deck. Arrow keys / click to navigate; ?slide=N shows one slide;
+     ?render=1 hides the navigation (used by scripts/demo/make_demo.py to capture frames). */
+  :root { --brand: #96151d; --brand-soft: #f8e9ea; --navy: #0b2a4a; --gold: #c8a24d; --bg: #f6f4f1;
+          --text: #1f2328; --muted: #5d6573; --border: #e3ded8; --ok: #1e7b4a; --panel: #fff; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #111; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .deck { position: fixed; inset: 0; display: grid; place-items: center; }
+  .slide { width: 1920px; height: 1080px; background: var(--bg); color: var(--text); position: absolute;
+           transform-origin: center; display: none; overflow: hidden; padding: 110px 140px; }
+  .slide.on { display: block; }
+  .slide.dark { background: var(--navy); color: #fff; }
+  .slide h1 { font-size: 92px; line-height: 1.05; margin: 0 0 24px; letter-spacing: -.02em; }
+  .slide h2 { font-size: 64px; margin: 0 0 40px; letter-spacing: -.015em; }
+  .slide p, .slide li { font-size: 34px; line-height: 1.45; }
+  .slide .kicker { font-size: 26px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--brand); margin-bottom: 18px; }
+  .slide.dark .kicker { color: var(--gold); }
+  .muted { color: var(--muted); } .slide.dark .muted { color: #b9c4d2; }
+  .bar { position: absolute; left: 0; top: 0; bottom: 0; width: 18px; background: var(--brand); }
+  .foot { position: absolute; left: 140px; right: 140px; bottom: 54px; display: flex; justify-content: space-between; font-size: 22px; color: var(--muted); }
+  .slide.dark .foot { color: #8fa1b7; }
+  .mark { display: inline-grid; place-items: center; width: 120px; height: 120px; border-radius: 28px; background: var(--brand); color: #fff; font-size: 64px; font-weight: 800; margin-bottom: 44px; }
+  .acronym { font-size: 40px; color: #d8e0ea; margin: 0 0 54px; } .acronym b { color: var(--gold); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: start; }
+  .card { background: var(--panel); border: 2px solid var(--border); border-radius: 22px; padding: 34px 38px; }
+  .card h3 { font-size: 34px; margin: 0 0 12px; color: var(--brand); }
+  .card p, .card li { font-size: 29px; margin: 0; }
+  .card ul { margin: 0; padding-left: 30px; }
+  .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 26px; margin-top: 30px; }
+  .step { background: var(--panel); border: 2px solid var(--border); border-radius: 22px; padding: 30px; min-height: 360px; }
+  .step .n { display: inline-grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: var(--brand); color: #fff; font-size: 34px; font-weight: 800; margin-bottom: 18px; }
+  .step h3 { font-size: 36px; margin: 0 0 12px; } .step p { font-size: 27px; margin: 0; color: var(--muted); line-height: 1.4; }
+  .loopnote { margin-top: 34px; font-size: 30px; color: var(--muted); }
+  table { border-collapse: collapse; width: 100%; font-size: 30px; }
+  th, td { text-align: left; padding: 16px 18px; border-bottom: 2px solid var(--border); }
+  th { font-size: 22px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .warn { background: #fbf1dc; color: #6b4600; border-radius: 16px; padding: 22px 28px; font-size: 28px; margin-top: 30px; }
+  pre { background: #0f1a26; color: #e8edf3; border-radius: 18px; padding: 30px 36px; font-size: 30px; line-height: 1.55; margin: 0 0 30px; }
+  pre .c { color: #8fa1b7; }
+  .pill { display: inline-block; border-radius: 999px; padding: 4px 18px; font-size: 24px; font-weight: 700; background: var(--brand-soft); color: var(--brand); margin: 0 8px 10px 0; }
+  svg text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  .nav { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); color: #aaa; font-size: 13px; }
+  body.render .nav { display: none; }
+</style>
+</head>
+<body>
+<div class="deck">
+
+<!-- 1 -->
+<section class="slide dark">
+  <div class="bar"></div>
+  <div class="mark">C</div>
+  <h1>CLASP</h1>
+  <p class="acronym"><b>C</b>ontrastive <b>L</b>abelling <b>A</b>nd <b>S</b>ystem-1 <b>P</b>rediction</p>
+  <p style="font-size:40px;max-width:1400px">A workbench for building fast text classifiers from a few hundred labelled examples, and improving them with expert feedback.</p>
+  <div class="foot"><span>Product walkthrough</span><span>github.com/rgvvvg5mpz-collab/clm-regime-classifier</span></div>
+</section>
+
+<!-- 2 -->
+<section class="slide">
+  <div class="kicker">The idea</div>
+  <h2>System-1 classifiers: fast, cheap, single decisions</h2>
+  <div class="grid2">
+    <div class="card"><h3>A System-1 model…</h3><ul>
+      <li>answers one question about a text: which class?</li>
+      <li>scores candidates instead of writing text</li>
+      <li>takes milliseconds, not seconds</li>
+      <li>sits beside an LLM to screen, route or triage</li></ul></div>
+    <div class="card"><h3>Typical uses</h3><ul>
+      <li>screening chat turns for compliance issues</li>
+      <li>routing support emails to the right team</li>
+      <li>flagging risky or out-of-scope requests</li>
+      <li>labelling data at scale</li></ul></div>
+  </div>
+  <div class="foot"><span>CLASP</span><span>2</span></div>
+</section>
+
+<!-- 3 -->
+<section class="slide">
+  <div class="kicker">How it scores a text</div>
+  <h2>Compare the text with a description of every class</h2>
+  <svg viewBox="0 0 1640 560" width="1640" height="560" role="img" aria-label="CLASP scoring">
+    <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5d6573"/></marker></defs>
+    <rect x="0" y="40" width="360" height="150" rx="20" fill="#fff" stroke="#cfc8bf" stroke-width="3"/>
+    <text x="30" y="98" font-size="34" font-weight="700" fill="#1f2328">The text</text>
+    <text x="30" y="145" font-size="26" fill="#5d6573">+ a fixed question</text>
+    <rect x="0" y="340" width="360" height="170" rx="20" fill="#fff" stroke="#cfc8bf" stroke-width="3"/>
+    <text x="30" y="398" font-size="34" font-weight="700" fill="#1f2328">Class descriptions</text>
+    <text x="30" y="445" font-size="26" fill="#5d6573">one sentence per class</text>
+    <text x="30" y="485" font-size="26" fill="#5d6573">(encoded once, cached)</text>
+    <rect x="450" y="40" width="330" height="470" rx="20" fill="#efebe6" stroke="#cfc8bf" stroke-width="3" stroke-dasharray="10 8"/>
+    <text x="478" y="100" font-size="34" font-weight="700" fill="#1f2328">Qwen3-8B</text>
+    <text x="478" y="145" font-size="26" fill="#5d6573">encoder, frozen</text>
+    <text x="478" y="470" font-size="26" fill="#5d6573">never retrained</text>
+    <rect x="870" y="40" width="320" height="150" rx="20" fill="#f8e9ea" stroke="#96151d" stroke-width="3"/>
+    <text x="898" y="98" font-size="34" font-weight="700" fill="#1f2328">State head</text>
+    <text x="898" y="145" font-size="26" fill="#96151d">trained</text>
+    <rect x="870" y="340" width="320" height="170" rx="20" fill="#f8e9ea" stroke="#96151d" stroke-width="3"/>
+    <text x="898" y="398" font-size="34" font-weight="700" fill="#1f2328">Action head</text>
+    <text x="898" y="445" font-size="26" fill="#96151d">trained</text>
+    <rect x="1290" y="170" width="350" height="210" rx="20" fill="#fff" stroke="#cfc8bf" stroke-width="3"/>
+    <text x="1318" y="228" font-size="34" font-weight="700" fill="#1f2328">Similarity</text>
+    <text x="1318" y="276" font-size="26" fill="#5d6573">cosine × temperature</text>
+    <text x="1318" y="320" font-size="26" fill="#5d6573">softmax → probabilities</text>
+    <text x="1318" y="360" font-size="26" fill="#1e7b4a" font-weight="700">highest wins</text>
+    <path d="M360 115 H444" stroke="#5d6573" stroke-width="3" marker-end="url(#a)"/>
+    <path d="M360 425 H444" stroke="#5d6573" stroke-width="3" marker-end="url(#a)"/>
+    <path d="M780 115 H864" stroke="#5d6573" stroke-width="3" marker-end="url(#a)"/>
+    <path d="M780 425 H864" stroke="#5d6573" stroke-width="3" marker-end="url(#a)"/>
+    <path d="M1190 115 C1240 115 1240 230 1284 230" stroke="#5d6573" stroke-width="3" fill="none" marker-end="url(#a)"/>
+    <path d="M1190 425 C1240 425 1240 320 1284 320" stroke="#5d6573" stroke-width="3" fill="none" marker-end="url(#a)"/>
+  </svg>
+  <p class="muted" style="margin-top:30px">Built on CLM-8B (Stanford / NVIDIA). One encoder pass per text; the heads add a fraction of a millisecond.</p>
+  <div class="foot"><span>CLASP</span><span>3</span></div>
+</section>
+
+<!-- 4 -->
+<section class="slide">
+  <div class="kicker">How it learns</div>
+  <h2>A contrastive loss over the class descriptions</h2>
+  <div class="grid2">
+    <div class="card"><h3>For every labelled row</h3><ul>
+      <li>its own class description is the <b>positive</b></li>
+      <li>every other class is a <b>negative</b></li>
+      <li>no hand-written negatives needed</li>
+      <li>only two small heads train: 19 million parameters, about a minute</li></ul></div>
+    <div class="card"><h3>What you provide</h3><ul>
+      <li>rows of <b>text</b> and <b>label</b> (CSV or JSONL)</li>
+      <li>one plain sentence describing each class</li>
+      <li>a <b>negative class</b>, "none of the above", with its own examples</li>
+      <li>optionally: who is speaking, user or assistant</li></ul></div>
+  </div>
+  <div class="foot"><span>CLASP</span><span>4</span></div>
+</section>
+
+<!-- 5 -->
+<section class="slide">
+  <div class="kicker">The workflow</div>
+  <h2>Four tabs, one loop</h2>
+  <div class="steps">
+    <div class="step"><div class="n">0</div><h3>Curate</h3><p>Prompt Claude Code to research a topic and write a labelled dataset with class definitions.</p></div>
+    <div class="step"><div class="n">1</div><h3>Train</h3><p>Pick data, define the classes, validate, train, and read accuracy, precision and recall.</p></div>
+    <div class="step"><div class="n">2</div><h3>Chat &amp; flag</h3><p>Run conversations through the model and flag every verdict you disagree with.</p></div>
+    <div class="step"><div class="n">3</div><h3>Post-train</h3><p>Fold the flags back in, gate the candidate against the current model, promote it.</p></div>
+  </div>
+  <p class="loopnote">Every model is versioned, with its parent, metrics and gate result. Any version can be switched back in.</p>
+  <div class="foot"><span>CLASP</span><span>5</span></div>
+</section>
+
+<!-- 6 -->
+<section class="slide">
+  <div class="kicker">The worked example</div>
+  <h2>A regulatory screener for a broker-dealer's AI chat</h2>
+  <p style="margin-top:-12px"><span class="pill">FINRA 2210</span><span class="pill">Reg BI</span><span class="pill">FINRA 4530</span><span class="pill">SEC 17a-3/4</span><span class="pill">Reg S-P</span><span class="pill">Reg S-ID</span><span class="pill" style="background:#e7f3ec;color:#1e7b4a">no flag</span></p>
+  <table style="margin-top:18px">
+    <tr><th>Macro-F1, 5-class model</th><th class="num">Score</th><th class="num">Rows</th></tr>
+    <tr><td>Held-out test set</td><td class="num"><b>0.98</b></td><td class="num">2,501</td></tr>
+    <tr><td>Out-of-distribution, hard messages</td><td class="num"><b>0.80</b></td><td class="num">315</td></tr>
+    <tr><td>Out-of-distribution, low and medium difficulty</td><td class="num"><b>0.83</b></td><td class="num">210</td></tr>
+  </table>
+  <div class="warn">Plan around the out-of-distribution numbers. The main weakness: blunt Reg BI recommendations are often read as FINRA 2210.</div>
+  <div class="foot"><span>CLASP</span><span>6</span></div>
+</section>
+
+<!-- 7 -->
+<section class="slide">
+  <div class="kicker">Getting started</div>
+  <h2>Clone it and run one command</h2>
+  <pre>git clone https://github.com/rgvvvg5mpz-collab/clm-regime-classifier.git
+cd clm-regime-classifier
+scripts/run_ui.sh        <span class="c"># sets up on first run, then http://localhost:8710</span></pre>
+  <div class="grid2">
+    <div class="card"><h3>Or ask Claude Code</h3><p>Open the clone and say <b>"run the UI"</b>. The repo ships a skill for exactly that.</p></div>
+    <div class="card"><h3>Needs</h3><p>Python 3.10+, about 20 GB of disk, and Apple Silicon with 24 GB or a 24 GB CUDA GPU. No API key for the demo or training.</p></div>
+  </div>
+  <div class="foot"><span>CLASP</span><span>7</span></div>
+</section>
+
+<!-- 8 -->
+<section class="slide dark">
+  <div class="bar"></div>
+  <div class="kicker">Where to go next</div>
+  <h1 style="font-size:78px">Build your own classifier</h1>
+  <ul style="margin-top:40px">
+    <li><b>README.md</b>: setup and the repository layout</li>
+    <li><b>docs/</b>: architecture, developer guide, methodology</li>
+    <li><b>Tests/</b>: every evaluation run and the metrics summary</li>
+    <li><b>data/</b>: drop your own files here and they appear in the UI</li>
+  </ul>
+  <div class="foot"><span>CLASP: Contrastive Labelling And System-1 Prediction</span><span>Research code, not a compliance system of record</span></div>
+</section>
+
+</div>
+<div class="nav">← → or click to navigate · <span id="pos"></span></div>
+<script>
+  const slides = [...document.querySelectorAll(".slide")];
+  const q = new URLSearchParams(location.search);
+  if (q.get("render")) document.body.classList.add("render");
+  let i = Math.max(0, Math.min(slides.length - 1, (parseInt(q.get("slide") || "1", 10) || 1) - 1));
+  function fit() {   // scale the 1920x1080 slide to the window (render mode: exact size)
+    const s = q.get("render") ? 1 : Math.min(innerWidth / 1920, innerHeight / 1080);
+    slides.forEach((el) => (el.style.transform = `scale(${s})`));
+  }
+  function show(n) { i = (n + slides.length) % slides.length; slides.forEach((el, k) => el.classList.toggle("on", k === i)); document.getElementById("pos").textContent = `${i + 1} / ${slides.length}`; }
+  addEventListener("keydown", (e) => { if (["ArrowRight", "PageDown", " "].includes(e.key)) show(i + 1); if (["ArrowLeft", "PageUp"].includes(e.key)) show(i - 1); });
+  addEventListener("click", () => show(i + 1));
+  addEventListener("resize", fit);
+  fit(); show(i);
+</script>
+</body>
+</html>

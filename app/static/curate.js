@@ -49,7 +49,7 @@
     feed.append(head);
     const list = el("ol", "feed");
     j.events.slice(-60).forEach((ev) => {
-      const li = el("li", "ev " + ev.kind);
+      const li = el("li", "ev ev-" + ev.kind);   // prefixed: a bare "info" class would pick up the round i-icon style
       li.append(el("span", "ico", ICON[ev.kind] || "•"), el("span", "", ev.text));
       list.append(li);
     });

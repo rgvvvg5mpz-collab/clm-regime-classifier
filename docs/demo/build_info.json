@@ -1,0 +1,66 @@
+{
+  "duration_s": 567.4,
+  "chapters": [
+    [
+      0.0,
+      "What CLASP is"
+    ],
+    [
+      21.166666666666668,
+      "System-1 classifiers"
+    ],
+    [
+      53.26666666666667,
+      "How a text is scored"
+    ],
+    [
+      89.86666666666667,
+      "The contrastive loss"
+    ],
+    [
+      127.96666666666667,
+      "The four-tab loop"
+    ],
+    [
+      161.73333333333335,
+      "The worked example"
+    ],
+    [
+      202.9,
+      "Getting started"
+    ],
+    [
+      232.96666666666667,
+      "A tour of the workbench"
+    ],
+    [
+      259.3333333333333,
+      "0 \u00b7 Data curation"
+    ],
+    [
+      323.23333333333335,
+      "1 \u00b7 Train"
+    ],
+    [
+      400.73333333333335,
+      "2 \u00b7 Chat & flag"
+    ],
+    [
+      459.4333333333334,
+      "3 \u00b7 Post-train"
+    ],
+    [
+      527.5333333333334,
+      "The classes"
+    ],
+    [
+      545.4000000000001,
+      "Where to go next"
+    ]
+  ],
+  "lines": 75,
+  "srt": "/Users/saxena/Desktop/ClaudeCode_GIT/JEV Experimentation/docs/demo/clasp_demo.srt",
+  "voice": "Ava (Premium)",
+  "rate": 178,
+  "video": "docs/demo/clasp_demo.mp4"
+}

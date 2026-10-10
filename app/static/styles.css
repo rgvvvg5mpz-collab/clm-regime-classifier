@@ -181,8 +181,8 @@ ol.feed { list-style: none; margin: 8px 0; padding: 0; max-height: 320px; overfl
 ol.feed li { display: grid; grid-template-columns: 22px 1fr; gap: 6px; padding: 5px 10px; border-bottom: 1px solid var(--border); font-size: 12.5px; }
 ol.feed li:last-child { border-bottom: 0; }
 ol.feed .ico { color: var(--muted); text-align: center; }
-ol.feed li.tool .ico { color: var(--brand); } ol.feed li.done .ico { color: var(--ok); } ol.feed li.error, ol.feed li.denied { color: var(--flag); }
-ol.feed li.say { color: var(--text); font-style: italic; }
+ol.feed li.ev-tool .ico { color: var(--brand); } ol.feed li.ev-done .ico { color: var(--ok); } ol.feed li.ev-error, ol.feed li.ev-denied { color: var(--flag); }
+ol.feed li.ev-say { color: var(--text); font-style: italic; }
 pre.notes { white-space: pre-wrap; font-size: 12px; background: var(--code-bg); padding: 10px; border-radius: 8px; max-height: 280px; overflow: auto; }
 
 details.local { margin-top: 2px; } details.local summary { cursor: pointer; color: var(--muted); }
