@@ -254,9 +254,10 @@ function renderAbout() {
 }
 
 function showView(id) {
-  document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("on", b.dataset.view === id));
-  $("chatView").hidden = id !== "chatView";
-  $("aboutView").hidden = id !== "aboutView";
+  document.querySelectorAll(".tab").forEach((b) => {
+    b.classList.toggle("on", b.dataset.view === id);
+    const v = $(b.dataset.view); if (v) v.hidden = b.dataset.view !== id;
+  });
   if (id === "aboutView" && state.config) renderAbout();
 }
 

@@ -62,7 +62,9 @@ class Prediction:
 
 class RegimeClassifier:
     def __init__(self, checkpoint: str = DEFAULT_CKPT, emb_url: str | None = None,
-                 emb_model: str = "qwen3-8b", device: str = "cpu"):
+                 emb_model: str = "qwen3-8b", device: str = "cpu", embedder=None):
+        """``embedder`` lets a caller reuse an already-loaded encoder (the chat server swaps
+        checkpoints without reloading Qwen3-8B)."""
         if not os.path.exists(checkpoint):
             raise FileNotFoundError(
                 f"{checkpoint} not found - download it from the GitHub release "
@@ -74,12 +76,15 @@ class RegimeClassifier:
         self.negative = self.labels[0]
         self.unit_classes = {u: [self.negative] + [l for l in ls if l in self.classes] for u, ls in UNIT_CLASSES.items()}
         self.heads = HeadPair("regime", checkpoint, device).ensure()
-        if emb_url:
+        if embedder is not None:
+            self.embedder = embedder
+        elif emb_url:
             from clm.embedder import Embedder
             self.embedder = Embedder(url=emb_url, model=emb_model)
         else:
             from mps_embedder import MPSEmbedder
             self.embedder = MPSEmbedder()
+        self.checkpoint = checkpoint
         cand, _ = self.embedder.embed(list(self.classes.values()))
         self._zc = self.heads.project_actions(cand)
 

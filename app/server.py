@@ -18,7 +18,7 @@ import uuid
 from dataclasses import asdict
 
 import yaml
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -28,6 +28,7 @@ sys.path.insert(0, os.path.join(ROOT, "regime_clf"))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from llm import LLMError, ProviderConfig, chat  # noqa: E402
+import training  # noqa: E402
 
 CONFIG = yaml.safe_load(open(os.environ.get("CHAT_CONFIG", os.path.join(ROOT, "app", "config.yaml"))))
 TURNS = os.path.join(ROOT, CONFIG["storage"]["turns"])
@@ -183,6 +184,127 @@ def chat_turn(req: ChatRequest):
                           "screen_reply": round(t_reply, 3)}}
     append_jsonl(TURNS, turn)
     return turn
+
+
+# ------------------------------------------------------------------ training tabs
+class ValidateRequest(BaseModel):
+    upload_id: str
+    spec: dict
+    expert: bool = False     # post-training corrections: no per-class minimums
+
+
+class StartRequest(BaseModel):
+    name: str | None = None
+    epochs: int = 30
+    lr: float = 1e-3
+    init: str = "reference"              # reference | active | <checkpoint path>
+    upload_id: str | None = None         # train tab
+    post_train: bool = False             # post-training tab
+    use_feedback: bool = True
+    extra_upload_id: str | None = None
+    include_base_data: bool = True
+    oversample: int = 5
+
+
+class ActivateRequest(BaseModel):
+    checkpoint: str
+    reason: str | None = None
+
+
+def _active_ckpt() -> str:
+    return CONFIG["classifier"]["checkpoint"]
+
+
+@app.post("/api/train/upload")
+async def train_upload(file: UploadFile = File(...)):
+    data = await file.read()
+    if len(data) > 50_000_000:
+        raise HTTPException(413, "file larger than 50 MB")
+    try:
+        return training.parse_upload(file.filename or "upload.jsonl", data)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.get("/api/train/examples")
+def train_examples():
+    return training.examples()
+
+
+class ExampleRequest(BaseModel):
+    name: str
+
+
+@app.post("/api/train/use_example")
+def train_use_example(req: ExampleRequest):
+    try:
+        return training.use_example(req.name)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+
+
+@app.post("/api/train/validate")
+def train_validate(req: ValidateRequest):
+    try:
+        return training.validate(req.upload_id, req.spec, expert=req.expert)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+
+
+@app.post("/api/train/start")
+def train_start(req: StartRequest):
+    if not req.post_train and not req.upload_id:
+        raise HTTPException(400, "upload_id required")
+    clf = classifier()   # the job embeds with the screener's encoder
+    try:
+        return training.start_job(req.model_dump(), clf.embedder, _active_ckpt())
+    except RuntimeError as e:
+        raise HTTPException(409, str(e))
+
+
+@app.get("/api/train/jobs")
+def train_jobs():
+    return training.jobs()
+
+
+@app.get("/api/train/jobs/{job_id}")
+def train_job(job_id: str):
+    j = training.job(job_id)
+    if not j:
+        raise HTTPException(404, "unknown job")
+    return j
+
+
+@app.get("/api/train/models")
+def train_models():
+    return {"active": _active_ckpt(), "models": training.registry(), "running": training._running.is_set()}
+
+
+@app.get("/api/train/feedback")
+def train_feedback():
+    import torch
+    ck = torch.load(os.path.join(ROOT, _active_ckpt()), map_location="cpu")
+    labels = list(ck["classes"])
+    fb = training.feedback_rows(labels, labels[0])
+    return {"labels": labels, "n": fb["n"], "skipped": fb["skipped"], "by_label": fb["by_label"],
+            "sample": fb["rows"][:5]}
+
+
+@app.post("/api/train/activate")
+def train_activate(req: ActivateRequest):
+    """Hot-swap the screener to another checkpoint; the encoder stays loaded."""
+    global _clf
+    path = os.path.join(ROOT, req.checkpoint)
+    if not os.path.exists(path):
+        raise HTTPException(404, f"{req.checkpoint} not found")
+    from inference import RegimeClassifier
+    with _clf_lock:
+        emb = _clf.embedder if _clf is not None else None
+        _clf = RegimeClassifier(path, emb_url=CONFIG["classifier"].get("emb_url") or None, embedder=emb)
+    CONFIG["classifier"]["checkpoint"] = req.checkpoint
+    append_jsonl(os.path.join(ROOT, "app", "data", "promotions.jsonl"),
+                 {"ts": time.time(), "checkpoint": req.checkpoint, "reason": req.reason})
+    return {"active": req.checkpoint, "labels": _clf.labels}
 
 
 @app.post("/api/feedback")

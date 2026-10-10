@@ -1,0 +1,272 @@
+{
+  "labels": [
+    "no_flag",
+    "sec_17a3_17a4",
+    "finra_2210",
+    "finra_4530",
+    "reg_bi"
+  ],
+  "classes": {
+    "no_flag": "No flag. The message raises none of the covered issues: it is an ordinary question, general education, a properly balanced and disclosed answer, or a matter outside the covered rules such as personal data, privacy, identity verification or account security.",
+    "sec_17a3_17a4": "SEC Rules 17a-3 and 17a-4 books and records: the customer references or invites off-channel communication (texts, personal phone, personal email), asks that something not be recorded or written down, or reports an account update that must be captured in the firm's records.",
+    "finra_2210": "FINRA Rule 2210 communications with the public: the assistant's response is misleading, promissory, exaggerated, unbalanced on risks and benefits, projects performance, mischaracterizes taxes, or omits required disclosures.",
+    "finra_4530": "FINRA Rule 4530 customer complaint: the customer is making a written grievance about sales practices, unauthorized trading, account errors, theft, misappropriation or forgery that must be reported.",
+    "reg_bi": "Regulation Best Interest: the assistant makes a personalized recommendation of a security, investment strategy, account type or rollover, or steers the customer toward proprietary products."
+  },
+  "clm_finetuned": {
+    "history": [
+      {
+        "epoch": 1,
+        "train_loss": 2.704214358329773,
+        "val_macro_f1": 0.10071942446043165
+      },
+      {
+        "epoch": 2,
+        "train_loss": 2.065926420688629,
+        "val_macro_f1": 0.26135854164023176
+      },
+      {
+        "epoch": 3,
+        "train_loss": 1.3435162544250487,
+        "val_macro_f1": 0.5526291659619914
+      },
+      {
+        "epoch": 4,
+        "train_loss": 0.96882284283638,
+        "val_macro_f1": 0.7200352204639766
+      },
+      {
+        "epoch": 5,
+        "train_loss": 0.7497838735580444,
+        "val_macro_f1": 0.8019130750616439
+      },
+      {
+        "epoch": 6,
+        "train_loss": 0.5954764783382416,
+        "val_macro_f1": 0.8244139029662172
+      },
+      {
+        "epoch": 7,
+        "train_loss": 0.47685812711715697,
+        "val_macro_f1": 0.8774251714345764
+      },
+      {
+        "epoch": 8,
+        "train_loss": 0.39448065161705015,
+        "val_macro_f1": 0.8732918192918193
+      },
+      {
+        "epoch": 9,
+        "train_loss": 0.34516213536262513,
+        "val_macro_f1": 0.8831448452705155
+      },
+      {
+        "epoch": 10,
+        "train_loss": 0.30521655529737474,
+        "val_macro_f1": 0.8707727127400003
+      },
+      {
+        "epoch": 11,
+        "train_loss": 0.2672128424048424,
+        "val_macro_f1": 0.8457280706637718
+      },
+      {
+        "epoch": 12,
+        "train_loss": 0.24438848793506623,
+        "val_macro_f1": 0.9072465412308738
+      },
+      {
+        "epoch": 13,
+        "train_loss": 0.20165615975856782,
+        "val_macro_f1": 0.9129190188928824
+      },
+      {
+        "epoch": 14,
+        "train_loss": 0.19046317785978317,
+        "val_macro_f1": 0.9325885708494404
+      },
+      {
+        "epoch": 15,
+        "train_loss": 0.17266072928905488,
+        "val_macro_f1": 0.9209764599916251
+      },
+      {
+        "epoch": 16,
+        "train_loss": 0.15887588486075402,
+        "val_macro_f1": 0.9116962645437845
+      },
+      {
+        "epoch": 17,
+        "train_loss": 0.13280235081911088,
+        "val_macro_f1": 0.9271646234812149
+      },
+      {
+        "epoch": 18,
+        "train_loss": 0.12082164734601974,
+        "val_macro_f1": 0.9162732841648419
+      },
+      {
+        "epoch": 19,
+        "train_loss": 0.12219602465629578,
+        "val_macro_f1": 0.9097860412791032
+      },
+      {
+        "epoch": 20,
+        "train_loss": 0.11562514081597328,
+        "val_macro_f1": 0.9186705324703448
+      },
+      {
+        "epoch": 21,
+        "train_loss": 0.10236102268099785,
+        "val_macro_f1": 0.9417855794972105
+      },
+      {
+        "epoch": 22,
+        "train_loss": 0.09717139154672623,
+        "val_macro_f1": 0.914977769034035
+      },
+      {
+        "epoch": 23,
+        "train_loss": 0.09572293013334274,
+        "val_macro_f1": 0.9259464030560173
+      },
+      {
+        "epoch": 24,
+        "train_loss": 0.0895621933043003,
+        "val_macro_f1": 0.913851680876788
+      },
+      {
+        "epoch": 25,
+        "train_loss": 0.08672855719923973,
+        "val_macro_f1": 0.9303546752310338
+      },
+      {
+        "epoch": 26,
+        "train_loss": 0.08484386280179024,
+        "val_macro_f1": 0.9302892355828118
+      },
+      {
+        "epoch": 27,
+        "train_loss": 0.08319428563117981,
+        "val_macro_f1": 0.9302892355828118
+      },
+      {
+        "epoch": 28,
+        "train_loss": 0.08256908021867275,
+        "val_macro_f1": 0.9302892355828118
+      },
+      {
+        "epoch": 29,
+        "train_loss": 0.08216306567192078,
+        "val_macro_f1": 0.9302892355828118
+      },
+      {
+        "epoch": 30,
+        "train_loss": 0.08196148052811622,
+        "val_macro_f1": 0.9302892355828118
+      }
+    ],
+    "macro_f1": 0.9184373257723275,
+    "hparams": {
+      "epochs": 30,
+      "lr": 0.001,
+      "batch": 168,
+      "init": "CLM_v0.1-8B.pt"
+    }
+  },
+  "latency": {
+    "clm_heads_ms_per_decision_cpu": NaN
+  },
+  "gate": {
+    "sets": {
+      "test": {
+        "n": 210,
+        "candidate": {
+          "accuracy": 0.9142857142857143,
+          "macro_f1": 0.9184373257723275,
+          "recall": {
+            "no_flag": 0.8857142857142857,
+            "sec_17a3_17a4": 0.8571428571428571,
+            "finra_2210": 0.8857142857142857,
+            "finra_4530": 1.0,
+            "reg_bi": 0.9714285714285714
+          }
+        },
+        "active": {
+          "accuracy": 1.0,
+          "macro_f1": 1.0,
+          "recall": {
+            "no_flag": 1.0,
+            "sec_17a3_17a4": 1.0,
+            "finra_2210": 1.0,
+            "finra_4530": 1.0,
+            "reg_bi": 1.0
+          }
+        }
+      },
+      "ood_hard": {
+        "n": 315,
+        "candidate": {
+          "accuracy": 0.834920634920635,
+          "macro_f1": 0.8264310992543736,
+          "recall": {
+            "no_flag": 0.8740740740740741,
+            "sec_17a3_17a4": 0.6666666666666666,
+            "finra_2210": 0.8888888888888888,
+            "finra_4530": 0.8888888888888888,
+            "reg_bi": 0.7777777777777778
+          }
+        },
+        "active": {
+          "accuracy": 0.8253968253968254,
+          "macro_f1": 0.8004225964309082,
+          "recall": {
+            "no_flag": 0.9111111111111111,
+            "sec_17a3_17a4": 0.7555555555555555,
+            "finra_2210": 0.9333333333333333,
+            "finra_4530": 0.8222222222222222,
+            "reg_bi": 0.5333333333333333
+          }
+        }
+      },
+      "ood_low_medium": {
+        "n": 210,
+        "candidate": {
+          "accuracy": 0.7666666666666667,
+          "macro_f1": 0.7505822300987435,
+          "recall": {
+            "no_flag": 0.8,
+            "sec_17a3_17a4": 0.7666666666666667,
+            "finra_2210": 0.7666666666666667,
+            "finra_4530": 0.8333333333333334,
+            "reg_bi": 0.6
+          }
+        },
+        "active": {
+          "accuracy": 0.8380952380952381,
+          "macro_f1": 0.8303318615581826,
+          "recall": {
+            "no_flag": 0.8333333333333334,
+            "sec_17a3_17a4": 0.8333333333333334,
+            "finra_2210": 0.9666666666666667,
+            "finra_4530": 0.9,
+            "reg_bi": 0.6666666666666666
+          }
+        }
+      }
+    },
+    "regressions": [
+      "test: macro-F1 1.000 -> 0.918",
+      "test: recall for SEC Rules 17a-3 / 17a-4 1.00 -> 0.86",
+      "test: recall for FINRA Rule 2210 1.00 -> 0.89",
+      "ood_hard: recall for SEC Rules 17a-3 / 17a-4 0.76 -> 0.67",
+      "ood_low_medium: macro-F1 0.830 -> 0.751",
+      "ood_low_medium: recall for SEC Rules 17a-3 / 17a-4 0.83 -> 0.77",
+      "ood_low_medium: recall for FINRA Rule 2210 0.97 -> 0.77",
+      "ood_low_medium: recall for FINRA Rule 4530 complaint 0.90 -> 0.83",
+      "ood_low_medium: recall for Regulation Best Interest 0.67 -> 0.60"
+    ],
+    "passed": false
+  },
+  "notes": []
+}

@@ -1,0 +1,35 @@
+{
+  "spec": {
+    "no_flag": {
+      "name": "No flag",
+      "description": "No flag. The message raises none of the covered issues: it is an ordinary question, general education, a properly balanced and disclosed answer, or a matter outside the covered rules such as personal data, privacy, identity verification or account security.",
+      "speaker": "either",
+      "negative": true
+    },
+    "finra_2210": {
+      "name": "FINRA Rule 2210",
+      "description": "FINRA Rule 2210 communications with the public: the assistant's response is misleading, promissory, exaggerated, unbalanced on risks and benefits, projects performance, mischaracterizes taxes, or omits required disclosures.",
+      "speaker": "assistant",
+      "negative": false
+    },
+    "reg_bi": {
+      "name": "Regulation Best Interest",
+      "description": "Regulation Best Interest: the assistant makes a personalized recommendation of a security, investment strategy, account type or rollover, or steers the customer toward proprietary products.",
+      "speaker": "assistant",
+      "negative": false
+    },
+    "finra_4530": {
+      "name": "FINRA Rule 4530 complaint",
+      "description": "FINRA Rule 4530 customer complaint: the customer is making a written grievance about sales practices, unauthorized trading, account errors, theft, misappropriation or forgery that must be reported.",
+      "speaker": "client",
+      "negative": false
+    },
+    "sec_17a3_17a4": {
+      "name": "SEC Rules 17a-3 / 17a-4",
+      "description": "SEC Rules 17a-3 and 17a-4 books and records: the customer references or invites off-channel communication (texts, personal phone, personal email), asks that something not be recorded or written down, or reports an account update that must be captured in the firm's records.",
+      "speaker": "client",
+      "negative": false
+    }
+  },
+  "negative": "no_flag"
+}

@@ -1,0 +1,47 @@
+{
+  "spec": {
+    "compliant": {
+      "name": "Compliant",
+      "description": "None. The message is compliant: an ordinary question, general education, or a properly balanced and disclosed answer that raises no regulatory issue.",
+      "speaker": "either",
+      "negative": true
+    },
+    "finra_2210": {
+      "name": "FINRA Rule 2210",
+      "description": "FINRA Rule 2210 communications with the public: the assistant's response is misleading, promissory, exaggerated, unbalanced on risks and benefits, projects performance, mischaracterizes taxes, or omits required disclosures.",
+      "speaker": "assistant",
+      "negative": false
+    },
+    "reg_bi": {
+      "name": "Regulation Best Interest",
+      "description": "Regulation Best Interest: the assistant makes a personalized recommendation of a security, investment strategy, account type or rollover, or steers the customer toward proprietary products.",
+      "speaker": "assistant",
+      "negative": false
+    },
+    "finra_4530": {
+      "name": "FINRA Rule 4530 complaint",
+      "description": "FINRA Rule 4530 customer complaint: the customer is making a written grievance about sales practices, unauthorized trading, account errors, theft, misappropriation or forgery that must be reported.",
+      "speaker": "client",
+      "negative": false
+    },
+    "sec_17a3_17a4": {
+      "name": "SEC Rules 17a-3 / 17a-4",
+      "description": "SEC Rules 17a-3 and 17a-4 books and records: the customer references or invites off-channel communication (texts, personal phone, personal email), asks that something not be recorded or written down, or reports an account update that must be captured in the firm's records.",
+      "speaker": "client",
+      "negative": false
+    },
+    "reg_sp": {
+      "name": "Regulation S-P",
+      "description": "Regulation S-P privacy: the customer shares sensitive personal information such as an SSN, date of birth or account numbers, makes a privacy or opt-out request, reports a data breach or incident, or asks for another person's information.",
+      "speaker": "client",
+      "negative": false
+    },
+    "reg_sid": {
+      "name": "Regulation S-ID",
+      "description": "Regulation S-ID identity theft red flags: the message shows signs of identity theft or account takeover, such as a reported stolen identity, inconsistent or suspicious identifying information, unauthorized contact-detail changes, or attempts to bypass or delegate identity verification.",
+      "speaker": "client",
+      "negative": false
+    }
+  },
+  "negative": "compliant"
+}

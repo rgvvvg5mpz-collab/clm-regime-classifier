@@ -1,0 +1,147 @@
+{
+  "labels": [
+    "no_flag",
+    "sec_17a3_17a4",
+    "finra_2210",
+    "finra_4530",
+    "reg_bi"
+  ],
+  "classes": {
+    "no_flag": "No flag. The message raises none of the covered issues: it is an ordinary question, general education, a properly balanced and disclosed answer, or a matter outside the covered rules such as personal data, privacy, identity verification or account security.",
+    "sec_17a3_17a4": "SEC Rules 17a-3 and 17a-4 books and records: the customer references or invites off-channel communication (texts, personal phone, personal email), asks that something not be recorded or written down, or reports an account update that must be captured in the firm's records.",
+    "finra_2210": "FINRA Rule 2210 communications with the public: the assistant's response is misleading, promissory, exaggerated, unbalanced on risks and benefits, projects performance, mischaracterizes taxes, or omits required disclosures.",
+    "finra_4530": "FINRA Rule 4530 customer complaint: the customer is making a written grievance about sales practices, unauthorized trading, account errors, theft, misappropriation or forgery that must be reported.",
+    "reg_bi": "Regulation Best Interest: the assistant makes a personalized recommendation of a security, investment strategy, account type or rollover, or steers the customer toward proprietary products."
+  },
+  "clm_finetuned": {
+    "history": [
+      {
+        "epoch": 1,
+        "train_loss": 0.12754234956304725,
+        "val_macro_f1": 0.9117207512616282
+      },
+      {
+        "epoch": 2,
+        "train_loss": 0.1340484055632693,
+        "val_macro_f1": 0.9177443797077693
+      },
+      {
+        "epoch": 3,
+        "train_loss": 0.12027374948039836,
+        "val_macro_f1": 0.9040192431171592
+      },
+      {
+        "epoch": 4,
+        "train_loss": 0.11512895293912802,
+        "val_macro_f1": 0.9205338771662085
+      },
+      {
+        "epoch": 5,
+        "train_loss": 0.109061489792231,
+        "val_macro_f1": 0.9216328185694682
+      }
+    ],
+    "macro_f1": 0.9096849867949613,
+    "hparams": {
+      "epochs": 5,
+      "lr": 0.0001,
+      "batch": 201,
+      "init": "regime_5way.pt"
+    }
+  },
+  "latency": {
+    "clm_heads_ms_per_decision_cpu": NaN
+  },
+  "gate": {
+    "sets": {
+      "test": {
+        "n": 210,
+        "candidate": {
+          "accuracy": 0.9047619047619048,
+          "macro_f1": 0.9096849867949613,
+          "recall": {
+            "no_flag": 0.9,
+            "sec_17a3_17a4": 0.8285714285714286,
+            "finra_2210": 0.9142857142857143,
+            "finra_4530": 0.9428571428571428,
+            "reg_bi": 0.9428571428571428
+          }
+        },
+        "active": {
+          "accuracy": 0.9142857142857143,
+          "macro_f1": 0.9184373257723275,
+          "recall": {
+            "no_flag": 0.8857142857142857,
+            "sec_17a3_17a4": 0.8571428571428571,
+            "finra_2210": 0.8857142857142857,
+            "finra_4530": 1.0,
+            "reg_bi": 0.9714285714285714
+          }
+        }
+      },
+      "ood_hard": {
+        "n": 315,
+        "candidate": {
+          "accuracy": 0.8222222222222222,
+          "macro_f1": 0.8018579360716668,
+          "recall": {
+            "no_flag": 0.9111111111111111,
+            "sec_17a3_17a4": 0.6444444444444445,
+            "finra_2210": 0.8888888888888888,
+            "finra_4530": 0.8444444444444444,
+            "reg_bi": 0.6444444444444445
+          }
+        },
+        "active": {
+          "accuracy": 0.834920634920635,
+          "macro_f1": 0.8264310992543736,
+          "recall": {
+            "no_flag": 0.8740740740740741,
+            "sec_17a3_17a4": 0.6666666666666666,
+            "finra_2210": 0.8888888888888888,
+            "finra_4530": 0.8888888888888888,
+            "reg_bi": 0.7777777777777778
+          }
+        }
+      },
+      "ood_low_medium": {
+        "n": 210,
+        "candidate": {
+          "accuracy": 0.7857142857142857,
+          "macro_f1": 0.7654229865288722,
+          "recall": {
+            "no_flag": 0.8666666666666667,
+            "sec_17a3_17a4": 0.7333333333333333,
+            "finra_2210": 0.8,
+            "finra_4530": 0.7666666666666667,
+            "reg_bi": 0.6
+          }
+        },
+        "active": {
+          "accuracy": 0.7666666666666667,
+          "macro_f1": 0.7505822300987435,
+          "recall": {
+            "no_flag": 0.8,
+            "sec_17a3_17a4": 0.7666666666666667,
+            "finra_2210": 0.7666666666666667,
+            "finra_4530": 0.8333333333333334,
+            "reg_bi": 0.6
+          }
+        }
+      }
+    },
+    "regressions": [
+      "test: recall for FINRA Rule 4530 complaint 1.00 -> 0.94",
+      "ood_hard: macro-F1 0.826 -> 0.802",
+      "ood_hard: recall for Regulation Best Interest 0.78 -> 0.64",
+      "ood_low_medium: recall for FINRA Rule 4530 complaint 0.83 -> 0.77"
+    ],
+    "passed": false
+  },
+  "notes": [
+    "base training data: 2100 rows from app/data/uploads/20261009-201755-939937/clean.jsonl",
+    "feedback rows: 3 used, 0 skipped (label outside this model)",
+    "expert upload rows: 80",
+    "expert train rows oversampled x5; 67 train / 16 val; 0 replaced base rows"
+  ]
+}

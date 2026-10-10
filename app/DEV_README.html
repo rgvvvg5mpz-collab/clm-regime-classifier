@@ -53,6 +53,35 @@ an OpenAI-compatible one.</p>
 from the checkpoint (<code>/api/config</code> → <code>labels</code>, <code>unit_classes</code>), so the verdict chips, the
 flag form and the scope note adapt automatically.</p>
 
+<h2>1b. Train and Post-train tabs</h2>
+<p><b>Train</b> builds a fresh model from an uploaded dataset in five gated steps: upload (CSV/JSONL with <code>text</code>,
+<code>label</code>, optional <code>speaker</code> and <code>split</code>) → define the classes (display name, the
+<i>description the model scores against</i>, which speaker can trigger it, and which class is the negative / nothing-to-flag
+class; exactly one is required) → validate (unknown labels, tiny classes, duplicates and conflicting labels, blocked real-firm
+names (scrubbed), speaker/label consistency, imbalance, stratified 80/10/10 split when none is given) → train (epochs, learning
+rate, initialise from the reference CLM heads or the active model; runs as a background job with progress) → results
+(accuracy / precision / recall / F1 for the model, a linear-probe baseline and the zero-shot reference heads, confusion matrix,
+per-class table, a link to the generated <code>Tests/&lt;date&gt;_ui_&lt;name&gt;/report.html</code>, and <b>Activate</b>).</p>
+<p><b>Post-train</b> continues the <i>active</i> model's heads on its original training data plus expert corrections: the
+false-positive / false-negative flags raised in the chat (<code>app/data/feedback.jsonl</code>, latest flag per turn wins,
+labels outside the model are skipped) and optionally an uploaded file of expert rows using the model's own labels. Expert rows
+are split 80/20 train/val and the train part is oversampled (default ×5). The candidate is then <b>gated</b> against the active
+model on the job's held-out split and, when the label space is a subset of the shipped taxonomy, on both OOD sets: any
+macro-F1 drop over 0.01 or per-class recall drop over 0.05 is a regression. Promotion is one click when the gate passes and
+requires a typed reason otherwise (logged to <code>app/data/promotions.jsonl</code>). The registry
+(<code>app/data/models.json</code>) lists every checkpoint with its metrics and gate result; any entry can be activated.</p>
+<p><b>Example data.</b> <code>app/examples/</code> ships <code>regime_5way_sample.csv</code> and <code>regime_7way_sample.csv</code>
+(with <code>.spec.json</code> files that prefill the class table) and <code>regime_5way_expert_corrections.csv</code> for the
+post-training step; both tabs list them in a dropdown (<code>GET /api/train/examples</code>, <code>POST /api/train/use_example</code>).
+Add your own by dropping a CSV/JSONL (and optionally a <code>&lt;name&gt;.spec.json</code>) in that folder.</p>
+<p><b>Versioning.</b> Every trained checkpoint gets a registry entry with <code>base_name</code>, <code>version</code> (the first
+model called <i>X</i> is v1, later ones <i>X_v2</i>, <i>X_v3</i>, …), <code>parent</code> (the checkpoint it was initialised
+from), metrics, gate result and the training-data path. Activations are appended to <code>app/data/promotions.jsonl</code>.</p>
+<p>Mechanics: <code>app/training.py</code> (uploads, validation, job thread, gate, registry) and
+<code>regime_clf/train_api.py</code> (the training recipe with classes passed as data). Embedding uses the encoder the screener
+already holds, through the shared <code>emb_cache/</code> store, so texts seen before are free and no second Qwen3-8B is loaded.
+One job runs at a time. Activation hot-swaps the heads; the encoder stays loaded.</p>
+
 <h2>2. What happens on a turn</h2>
 <ol>
 <li>The browser posts <code>/api/chat</code> with the provider settings, the visible history and the new message. In
@@ -88,6 +117,13 @@ replay mode it also sends <code>scripted_reply</code> (the transcript's assistan
 <tr><td><code>POST /api/warmup</code></td><td><code>{}</code></td><td>loads the classifier; <code>{seconds}</code></td></tr>
 <tr><td><code>POST /api/classify</code></td><td><code>{texts: [..], unit?}</code></td><td>list of <code>Prediction</code></td></tr>
 <tr><td><code>POST /api/chat</code></td><td><code>{session_id, provider{provider: scripted|anthropic|openai_compatible, model, base_url?, api_key?, api_key_env?, max_tokens?}, history[], message, system?, scripted_reply?, expected?}</code></td><td>the logged turn (verdicts, and <code>expected</code> when supplied); <code>502</code> with a readable message on LLM errors</td></tr>
+<tr><td><code>POST /api/train/upload</code></td><td>multipart <code>file</code></td><td>upload summary (labels, counts, speaker/split presence, suggested negative)</td></tr>
+<tr><td><code>POST /api/train/validate</code></td><td><code>{upload_id, spec{label: {name, description, speaker, negative}}}</code></td><td>errors, warnings, split counts; writes <code>clean.jsonl</code></td></tr>
+<tr><td><code>POST /api/train/start</code></td><td><code>{name, epochs, lr, init, upload_id}</code> or <code>{post_train: true, use_feedback, extra_upload_id?, include_base_data, oversample, init}</code></td><td>job; 409 if one is running</td></tr>
+<tr><td><code>GET /api/train/jobs[/{id}]</code></td><td>-</td><td>job status, progress, log, result (metrics, gate, report, checkpoint)</td></tr>
+<tr><td><code>GET /api/train/models</code></td><td>-</td><td>registry + active checkpoint</td></tr>
+<tr><td><code>GET /api/train/feedback</code></td><td>-</td><td>expert flags usable for the active model</td></tr>
+<tr><td><code>POST /api/train/activate</code></td><td><code>{checkpoint, reason?}</code></td><td>hot-swaps the screener</td></tr>
 <tr><td><code>POST /api/feedback</code></td><td><code>{turn_id, target: user|assistant, kind: false_positive|false_negative, text, predicted_label, correct_label?, note?}</code></td><td><code>{ok: true}</code></td></tr>
 </table></div>
 

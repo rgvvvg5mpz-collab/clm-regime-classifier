@@ -25,6 +25,7 @@ NAMES = {"compliant": "Compliant", "no_flag": "No flag", "finra_2210": "FINRA 22
          "finra_4530": "FINRA 4530", "sec_17a3_17a4": "SEC 17a-3/4", "reg_sp": "Reg S-P",
          "reg_sid": "Reg S-ID"}
 e = html.escape
+nm = lambda l: NAMES.get(l, l)   # user-trained models may have their own class keys
 
 
 def page(title: str, body: str, depth: int = 1) -> str:
@@ -62,7 +63,7 @@ def per_class_table(M: dict, keys=("clm_finetuned_unit_masked", "linear_probe"))
     rows = ""
     for l in labels:
         pc = M[best]["per_class"][l]
-        rows += (f"<tr><td>{NAMES[l]}</td><td class='num'>{pc['precision']:.3f}</td><td class='num'>{pc['recall']:.3f}</td>"
+        rows += (f"<tr><td>{nm(l)}</td><td class='num'>{pc['precision']:.3f}</td><td class='num'>{pc['recall']:.3f}</td>"
                  + "".join(f"<td class='num'>{M[k]['per_class'][l]['f1-score']:.3f}</td>" for k in keys if k in M)
                  + f"<td class='num'>{int(pc['support'])}</td></tr>")
     return ("<div class='scroll'><table><tr><th>Class</th><th class='num'>Precision</th><th class='num'>Recall</th>"
@@ -71,7 +72,7 @@ def per_class_table(M: dict, keys=("clm_finetuned_unit_masked", "linear_probe"))
 
 def confusion(m: dict, labels: list[str]) -> str:
     cm = m["confusion"]
-    head = "".join(f"<th class='rot num'>{NAMES[l]}</th>" for l in labels)
+    head = "".join(f"<th class='rot num'>{nm(l)}</th>" for l in labels)
     rows = ""
     for l, r in zip(labels, cm):
         tot = sum(r) or 1
@@ -80,7 +81,7 @@ def confusion(m: dict, labels: list[str]) -> str:
             a = v / tot
             fg = "color:#fff;" if a > 0.55 else ""
             cells += f"<td class='cell' style='background:rgba(var(--heat, 47, 91, 211),{a:.2f});{fg}'>{v}</td>"
-        rows += f"<tr><th class='rot'>{NAMES[l]}</th>{cells}</tr>"
+        rows += f"<tr><th class='rot'>{nm(l)}</th>{cells}</tr>"
     return ("<div class='scroll'><table class='heat'><tr><th class='rot'>gold ↓ / predicted →</th>"
             + head + "</tr>" + rows + "</table></div>")
 
@@ -131,7 +132,7 @@ def in_distribution(d: str) -> dict:
     label_set = M.get("label_set", "7way")
     date = os.path.basename(d)[:10]
     body = f"""<h1>In-distribution test, {len(M['labels'])}-class ({e(label_set)}) — {date}</h1>
-<p class="lede">RegModels v2 test split ({M['n']:,} messages, {len(M['labels'])} classes: {", ".join(NAMES[l] for l in M['labels'])}),
+<p class="lede">RegModels v2 test split ({M['n']:,} messages, {len(M['labels'])} classes: {", ".join(nm(l) for l in M['labels'])}),
 never seen in training or model selection. Hyper-parameters picked on the validation split only.</p>
 <div class="cards">
 <div class="card"><div class="k">Macro-F1 (CLM fine-tuned)</div><div class="v">{best['macro_f1']:.3f}</div><div class="s">95% CI {best['macro_f1_95ci'][0]:.3f}–{best['macro_f1_95ci'][1]:.3f}</div></div>
@@ -144,14 +145,14 @@ never seen in training or model selection. Hyper-parameters picked on the valida
 <h2>Confusion matrix — CLM fine-tuned</h2>{confusion(best, M['labels'])}
 <h2>Learning-rate sweep (selected on validation)</h2>
 <div class="scroll"><table><tr><th>Config</th><th class="num">Best val macro-F1</th><th class="num">Best epoch</th><th class="num">Test macro-F1</th></tr>{sweep_rows}</table></div>
-{line_chart({k: [h['val_macro_f1'] for h in v['history']] for k, v in sweep.items()}, 'Validation macro-F1')}
+{line_chart({k: [h['val_macro_f1'] for h in v['history']] for k, v in sweep.items()} or {"selected": [h['val_macro_f1'] for h in T['clm_finetuned']['history']]}, 'Validation macro-F1')}
 <p>Selected: <b>lr {hp.get('lr', '?')}</b>, {hp.get('epochs', '?')} epochs, batch {hp.get('batch', '?')}, AdamW (wd 0.01), one-cycle schedule,
 softmax-CE over the {len(M['labels'])} candidates, heads initialised from <code>CLM_v0.1-8B.pt</code>. Checkpoint = epoch {best_ep} (best validation macro-F1).</p>
 {"<h2>Zero-shot ablation</h2><p>Candidate wording and a label-free prior correction (<code>+centered</code>) were varied; none get close to usable.</p><div class='scroll'><table><tr><th>Variant</th><th class='num'>Accuracy</th><th class='num'>Macro-F1</th></tr>" + zs_rows + "</table></div>" if zs_rows else ""}
 <h2>Latency (Apple M5 Pro, 24 GB)</h2>
 <table><tr><th>Stage</th><th class="num">ms / message</th></tr>
 <tr><td>Qwen3-8B encoder (bf16, MPS, batch 16)</td><td class="num">{lat.get('encoder_ms_per_message', float('nan')):.1f}</td></tr>
-<tr><td>CLM heads + 7-way softmax (CPU, candidates cached)</td><td class="num">{T['latency']['clm_heads_ms_per_decision_cpu']:.2f}</td></tr></table>
+<tr><td>CLM heads + softmax (CPU, candidates cached)</td><td class="num">{T['latency']['clm_heads_ms_per_decision_cpu']:.2f}</td></tr></table>
 <h2>Files</h2><ul><li><code>eval_test/metrics.json</code>, <code>eval_test/predictions.jsonl</code></li>
 <li><code>training_metrics.json</code> (selected run incl. per-epoch history)</li><li><code>sweep/lr_*/</code> metrics and test errors per config</li>
 <li><code>zero_shot_variants.json</code>, <code>encoder_latency.json</code>, <code>sweep_logs/</code></li></ul>"""
@@ -189,8 +190,8 @@ def ood(d: str) -> dict:
         return f"<div class='scroll'><table><tr><th>{field.replace('by_', '')}</th><th class='num'>n</th>{head}</tr>{rows}</table></div>"
     errs = [p for p in preds if not p["correct"]]
     err_rows = "".join(
-        f"<tr><td>{e(p['text'][:260])}{'…' if len(p['text']) > 260 else ''}</td><td>{NAMES[p['label']]}</td>"
-        f"<td><span class='pill bad'>{NAMES[p['pred']]}</span> <span class='muted'>{p['p_pred']:.2f}</span></td>"
+        f"<tr><td>{e(p['text'][:260])}{'…' if len(p['text']) > 260 else ''}</td><td>{nm(p['label'])}</td>"
+        f"<td><span class='pill bad'>{nm(p['pred'])}</span> <span class='muted'>{p['p_pred']:.2f}</span></td>"
         f"<td class='muted'>{e(p.get('difficulty', ''))}<br>{e(p.get('ood_axis', ''))}</td></tr>" for p in errs[:25])
     missed = sum(r[0] for r in best["confusion"][1:])
     n_viol = M["n"] - M["label_counts"].get(M["labels"][0], 0)
@@ -202,7 +203,7 @@ def ood(d: str) -> dict:
 <div class="card"><div class="k">Macro-F1 (CLM fine-tuned, unit-masked)</div><div class="v">{best['macro_f1']:.3f}</div><div class="s">95% CI {best['macro_f1_95ci'][0]:.3f}–{best['macro_f1_95ci'][1]:.3f}</div></div>
 <div class="card"><div class="k">Accuracy</div><div class="v">{pct(best['accuracy'])}</div><div class="s">{M['n']} rows</div></div>
 <div class="card"><div class="k">Linear probe</div><div class="v">{M['linear_probe']['macro_f1']:.3f}</div><div class="s">macro-F1, same embeddings</div></div>
-<div class="card"><div class="k">Missed violations</div><div class="v">{missed}</div><div class="s">of {n_viol} in-class violations → predicted {NAMES[M['labels'][0]].lower()}</div></div>
+<div class="card"><div class="k">Missed violations</div><div class="v">{missed}</div><div class="s">of {n_viol} in-class violations → predicted {nm(M['labels'][0]).lower()}</div></div>
 </div>
 {notes}
 <h2>Methods</h2>{methods_table(M)}
@@ -211,7 +212,7 @@ def ood(d: str) -> dict:
 <h2>By difficulty</h2>{slice_table('by_difficulty')}
 <h2>By OOD axis</h2>{slice_table('by_ood_axis')}
 <h2>By speaker</h2>{slice_table('by_unit')}
-{"<h2>By source label (out-of-class rows are gold " + NAMES[M['labels'][0]].lower() + ")</h2>" + slice_table('by_source_label') if 'by_source_label' in best and len(best['by_source_label']) > len(M['labels']) else ""}
+{"<h2>By source label (out-of-class rows are gold " + nm(M['labels'][0]).lower() + ")</h2>" + slice_table('by_source_label') if 'by_source_label' in best and len(best['by_source_label']) > len(M['labels']) else ""}
 <h2>Sample errors ({len(errs)} total; first 25)</h2>
 <div class="scroll"><table><tr><th>Text</th><th>Gold</th><th>Predicted</th><th>Difficulty / axis</th></tr>{err_rows}</table></div>
 <h2>Files</h2><ul><li><code>metrics.json</code>: all methods, slices, CIs</li>
@@ -318,7 +319,7 @@ def write_metrics_md(runs) -> None:
         lines += [f"### {name}", "", "| Class | Precision | Recall | F1 | n |", "|---|---:|---:|---:|---:|"]
         for l in M["labels"]:
             c = b["per_class"][l]
-            lines.append(f"| {NAMES[l]} | {c['precision']:.3f} | {c['recall']:.3f} | {c['f1-score']:.3f} | {int(c['support'])} |")
+            lines.append(f"| {nm(l)} | {c['precision']:.3f} | {c['recall']:.3f} | {c['f1-score']:.3f} | {int(c['support'])} |")
         lines.append("")
     open(os.path.join(HERE, "METRICS.md"), "w").write("\n".join(lines))
     print("wrote METRICS.md")

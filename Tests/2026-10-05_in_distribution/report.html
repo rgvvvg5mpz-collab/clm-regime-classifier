@@ -94,7 +94,7 @@ softmax-CE over the 7 candidates, heads initialised from <code>CLM_v0.1-8B.pt</c
 <h2>Latency (Apple M5 Pro, 24 GB)</h2>
 <table><tr><th>Stage</th><th class="num">ms / message</th></tr>
 <tr><td>Qwen3-8B encoder (bf16, MPS, batch 16)</td><td class="num">53.9</td></tr>
-<tr><td>CLM heads + 7-way softmax (CPU, candidates cached)</td><td class="num">0.32</td></tr></table>
+<tr><td>CLM heads + softmax (CPU, candidates cached)</td><td class="num">0.32</td></tr></table>
 <h2>Files</h2><ul><li><code>eval_test/metrics.json</code>, <code>eval_test/predictions.jsonl</code></li>
 <li><code>training_metrics.json</code> (selected run incl. per-epoch history)</li><li><code>sweep/lr_*/</code> metrics and test errors per config</li>
 <li><code>zero_shot_variants.json</code>, <code>encoder_latency.json</code>, <code>sweep_logs/</code></li></ul></div></body></html>

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Regime Screening Chat</title>
-  <link rel="stylesheet" href="/static/styles.css?v=5">
+  <link rel="stylesheet" href="/static/styles.css?v=8">
 </head>
 <body>
 <div class="layout">
@@ -60,7 +60,74 @@
     <nav class="tabs" role="tablist">
       <button type="button" class="tab on" data-view="chatView" role="tab">Chat</button>
       <button type="button" class="tab" data-view="aboutView" role="tab">The classes</button>
+      <button type="button" class="tab" data-view="trainView" role="tab">Train</button>
+      <button type="button" class="tab" data-view="postView" role="tab">Post-train</button>
     </nav>
+    <section id="trainView" class="about" hidden>
+      <h2>Train a fresh model from your labelled data</h2>
+      <details class="walkthrough" open>
+        <summary><b>Exercise: the regime classifier, end to end</b> (about 15 minutes)</summary>
+        <ol>
+          <li><b>Train:</b> below, pick the example dataset <code>regime_5way_sample.csv</code>, keep the prefilled classes, validate, train (about a minute).</li>
+          <li><b>Read the metrics:</b> accuracy / precision / recall / F1, the confusion matrix, and the linear-probe baseline. Open the full report.</li>
+          <li><b>Activate</b> the model, then go to <b>Chat</b>: replay the demo transcripts (or chat live) and <b>flag</b> every verdict you disagree with. Flags are the expert data.</li>
+          <li><b>Post-train:</b> on that tab, your flags are listed; add the example <code>regime_5way_expert_corrections.csv</code> as extra SME rows, train a candidate from the active model.</li>
+          <li><b>Gate and promote:</b> compare the candidate with the active model on the held-out and OOD sets; promote if nothing regressed. Every model is versioned in the registry (v1, v2, …) with its parent and metrics, and any version can be re-activated.</li>
+        </ol>
+      </details>
+      <p class="muted">CSV or JSONL with <code>text</code> and <code>label</code> columns; optional <code>speaker</code>
+        (client / assistant) and <code>split</code> (train / val / test). The model needs one class that means
+        "nothing to flag", with its own examples, or it will flag everything.</p>
+      <div class="steps">
+        <div class="step" id="t-step1"><h3>1. Upload</h3>
+          <div class="row wrap"><label>Use an example dataset <select id="trainExample"><option value="">choose…</option></select></label><span class="muted small">or</span>
+            <input id="trainFile" type="file" accept=".csv,.jsonl,.json,text/csv,application/json"><button id="trainUpload" type="button">Upload</button></div>
+          <div id="trainSummary" class="small"></div></div>
+        <div class="step" id="t-step2" hidden><h3>2. Define the classes</h3>
+          <p class="muted small">The description is what the model scores each message against; write it as a sentence a compliance analyst would recognise.</p>
+          <div class="scroll"><table id="classSpec"></table></div>
+          <label>Model name <input id="trainName" placeholder="e.g. my_regimes_v1"></label></div>
+        <div class="step" id="t-step3" hidden><h3>3. Validate</h3>
+          <button id="trainValidate" type="button">Validate data</button>
+          <div id="trainValidation" class="small"></div></div>
+        <div class="step" id="t-step4" hidden><h3>4. Train</h3>
+          <div class="row wrap">
+            <label>Epochs <input id="trainEpochs" type="number" value="30" min="1" max="200"></label>
+            <label>Learning rate <input id="trainLr" type="number" value="0.001" step="0.0001" min="0.00001"></label>
+            <label>Initialise from <select id="trainInit"><option value="reference">reference CLM heads</option><option value="active">the active model</option></select></label>
+          </div>
+          <button id="trainStart" type="button">Train</button>
+          <div id="trainJob" class="job"></div></div>
+        <div class="step" id="t-step5" hidden><h3>5. Results</h3><div id="trainResults"></div></div>
+      </div>
+    </section>
+    <section id="postView" class="about" hidden>
+      <h2>Post-train the active model with expert labels</h2>
+      <p class="muted">Continues the active model's heads on its original training data plus the corrections experts raised
+        in the chat (false-positive / false-negative flags) and, optionally, an uploaded file of expert-labelled rows.
+        The candidate is then gated against the active model on the frozen test set and the OOD sets before it can be promoted.</p>
+      <div class="steps">
+        <div class="step"><h3>Active model</h3><div id="postActive" class="small"></div></div>
+        <div class="step"><h3>Expert data</h3>
+          <div id="postFeedback" class="small"></div>
+          <div class="row wrap"><label>Example corrections <select id="postExample"><option value="">none</option></select></label><span class="muted small">or</span>
+            <input id="postFile" type="file" accept=".csv,.jsonl,.json"><button id="postUpload" type="button" class="secondary">Upload expert rows</button></div>
+          <div id="postUploadInfo" class="small"></div></div>
+        <div class="step"><h3>Options</h3>
+          <div class="row wrap">
+            <label>Mode <select id="postMode"><option value="active">continue from the active model</option><option value="reference">train fresh from reference heads</option></select></label>
+            <label>Epochs <input id="postEpochs" type="number" value="5" min="1" max="100"></label>
+            <label>Learning rate <input id="postLr" type="number" value="0.0001" step="0.0001" min="0.00001"></label>
+            <label>Oversample expert rows ×<input id="postOversample" type="number" value="5" min="1" max="50"></label>
+            <label class="check"><input id="postBase" type="checkbox" checked> include the model's original training data</label>
+          </div>
+          <label>Candidate name <input id="postName" placeholder="e.g. 5way_post_v2"></label>
+          <button id="postStart" type="button">Train candidate</button>
+          <div id="postJob" class="job"></div></div>
+        <div class="step" id="p-results" hidden><h3>Gate and promote</h3><div id="postResults"></div></div>
+        <div class="step"><h3>Model registry</h3><div class="scroll"><table id="modelTable"></table></div></div>
+      </div>
+    </section>
     <section id="aboutView" class="about" hidden>
       <h2>What the screener looks for</h2>
       <p class="muted" id="aboutLede"></p>
@@ -104,6 +171,7 @@
     </div>
   </form>
 </template>
-<script src="/static/app.js?v=5"></script>
+<script src="/static/app.js?v=6"></script>
+<script src="/static/train.js?v=4"></script>
 </body>
 </html>
