@@ -29,6 +29,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from llm import LLMError, ProviderConfig, chat  # noqa: E402
 import training  # noqa: E402
+import curation  # noqa: E402
 
 CONFIG = yaml.safe_load(open(os.environ.get("CHAT_CONFIG", os.path.join(ROOT, "app", "config.yaml"))))
 TURNS = os.path.join(ROOT, CONFIG["storage"]["turns"])
@@ -194,6 +195,67 @@ def chat_turn(req: ChatRequest):
                           "screen_reply": round(t_reply, 3)}}
     append_jsonl(TURNS, turn)
     return turn
+
+
+# ------------------------------------------------------------------ data curation tab (Claude Code)
+class CurateRequest(BaseModel):
+    prompt: str
+    model: str | None = None
+    max_turns: int = 40
+    budget_usd: float = 5.0
+    rows_per_class: int = 50
+    resume_of: str | None = None
+
+
+@app.get("/api/curate/status")
+def curate_status():
+    return curation.status(CONFIG)
+
+
+@app.post("/api/curate/start")
+def curate_start(req: CurateRequest):
+    if not req.prompt.strip():
+        raise HTTPException(400, "write a prompt first")
+    try:
+        return curation.start(req.prompt, CONFIG, model=req.model or None, max_turns=req.max_turns,
+                              budget_usd=req.budget_usd, rows_per_class=req.rows_per_class, resume_of=req.resume_of)
+    except RuntimeError as e:
+        raise HTTPException(409, str(e))
+
+
+@app.get("/api/curate/jobs")
+def curate_jobs():
+    return curation.jobs()
+
+
+@app.get("/api/curate/jobs/{job_id}")
+def curate_job(job_id: str):
+    j = curation.job(job_id)
+    if not j:
+        raise HTTPException(404, "unknown job")
+    return j
+
+
+@app.post("/api/curate/jobs/{job_id}/cancel")
+def curate_cancel(job_id: str):
+    return {"cancelled": curation.cancel(job_id)}
+
+
+@app.post("/api/curate/jobs/{job_id}/to_train")
+def curate_to_train(job_id: str):
+    try:
+        return curation.to_upload(job_id)
+    except (FileNotFoundError, KeyError, ValueError) as e:
+        raise HTTPException(400, str(e))
+
+
+@app.get("/api/curate/jobs/{job_id}/download")
+def curate_download(job_id: str):
+    j = curation.job(job_id)
+    p = os.path.join(ROOT, j["workdir"], "dataset.jsonl") if j else None
+    if not p or not os.path.exists(p):
+        raise HTTPException(404, "no dataset yet")
+    return FileResponse(p, filename=f"curated_{job_id}.jsonl", media_type="application/json")
 
 
 # ------------------------------------------------------------------ training tabs

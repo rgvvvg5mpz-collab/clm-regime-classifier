@@ -47,8 +47,11 @@
     if (!f && !ex) { alert("Choose an example dataset or a CSV / JSONL file first."); return; }
     $("trainSummary").textContent = "Loading…";
     try {
-      T.upload = f ? await upload(f) : await api("/api/train/use_example", { name: ex }); T.validated = false;
-      const u = T.upload;
+      showUpload(f ? await upload(f) : await api("/api/train/use_example", { name: ex }), f ? f.name : ex);
+    } catch (e) { $("trainSummary").textContent = "Upload failed: " + e.message; }
+  }
+  function showUpload(u, nameHint) {   // also used by the Data curation tab's "Send to Train"
+      T.upload = u; T.validated = false;
       $("trainSummary").replaceChildren(
         el("div", "", `${u.n_rows.toLocaleString()} rows, ${Object.keys(u.labels).length} labels` +
           (u.has_speaker ? ", speaker column found" : ", no speaker column") + (u.has_split ? ", split column found" : "")),
@@ -57,8 +60,7 @@
       if (u.spec) applySpec(u.spec);
       $("t-step2").hidden = false; $("t-step3").hidden = false; $("t-step4").hidden = true; $("t-step5").hidden = true;
       $("t-step1").classList.add("done"); ["t-step2", "t-step3", "t-step4", "t-step5"].forEach((i) => $(i).classList.remove("done"));
-      $("trainName").value = (f ? f.name : ex).replace(/\.[^.]+$/, "").replace(/_sample$/, "").replace(/[^A-Za-z0-9_-]+/g, "_").slice(0, 30);
-    } catch (e) { $("trainSummary").textContent = "Upload failed: " + e.message; }
+      $("trainName").value = nameHint.replace(/\.[^.]+$/, "").replace(/_sample$/, "").replace(/[^A-Za-z0-9_-]+/g, "_").slice(0, 30);
   }
 
   function buildSpec(u) {
@@ -263,5 +265,5 @@
   $("trainUpload").onclick = doUpload; $("trainValidate").onclick = doValidate; $("trainStart").onclick = doTrain;
   $("postUpload").onclick = postUpload; $("postStart").onclick = postStart;
   document.querySelector('.tab[data-view="postView"]').addEventListener("click", () => { loadActive(); loadModels(); });
-  window.trainTabs = { loadModels, loadActive };
+  window.trainTabs = { loadModels, loadActive, showUpload };
 })();

@@ -4,12 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>System 1 Workbench</title>
-  <link rel="stylesheet" href="/static/styles.css?v=13">
+  <link rel="stylesheet" href="/static/styles.css?v=14">
 </head>
 <body>
 <header class="topbar">
   <div class="logo" data-tip="A workbench for System 1 classifiers trained with a contrastive loss (CLM-8B heads on a frozen Qwen3-8B encoder). The regulatory regime screener is the worked example; train your own classes from any labelled text."><span class="mark">S1</span> System 1 Workbench <span class="tagline">contrastive-loss classifiers</span></div>
   <nav class="flow" aria-label="Exercise steps">
+    <button type="button" data-view="curateView" data-tip="Step 0 (optional): prompt Claude Code to research a topic and write a labelled dataset for you."><span class="num">0</span>Curate</button>
+    <span class="sep">›</span>
     <button type="button" data-view="trainView" data-tip="Step 1: train a model from an example dataset or your own labelled file, and read its metrics."><span class="num">1</span>Train</button>
     <span class="sep">›</span>
     <button type="button" data-view="chatView" data-tip="Step 2: run conversations through the active model and flag any verdict you disagree with. Flags become expert data."><span class="num">2</span>Chat &amp; flag</button>
@@ -74,6 +76,7 @@
 
   <main class="chat">
     <nav class="tabs" role="tablist">
+      <button type="button" class="tab" data-view="curateView" role="tab" data-tip="Step 0 (optional): prompt Claude Code to research and write a labelled dataset, then send it to Train."><span class="badge">0</span>Data curation</button>
       <button type="button" class="tab" data-view="trainView" role="tab" data-tip="Step 1: train a fresh model from labelled data and read its metrics."><span class="badge">1</span>Train</button>
       <button type="button" class="tab on" data-view="chatView" role="tab" data-tip="Step 2: run conversations through the selected model and flag the verdicts you disagree with."><span class="badge">2</span>Chat &amp; flag</button>
       <button type="button" class="tab" data-view="postView" role="tab" data-tip="Step 3: fine-tune the selected model with expert corrections, gate it against the current one, promote it, and manage versions."><span class="badge">3</span>Post-train</button>
@@ -89,6 +92,40 @@
         trained state head; each class description goes through a trained action head; the class with the highest scaled cosine wins
         (softmax over the classes the speaker can receive). The heads are trained with a contrastive loss over the class descriptions:
         a row's own class is the positive, the other classes are the negatives. Details in <a href="/docs/architecture.html" target="_blank">docs/architecture.html</a>.</p>
+    </section>
+
+    <section id="curateView" class="about" hidden>
+      <h2>Curate a dataset with Claude Code</h2>
+      <p class="muted">Describe the classifier you want and the data you need. Claude Code researches the topic on the web, then writes
+        a labelled dataset (<code>dataset.jsonl</code>), the class definitions (<code>classes.json</code>, including the negative class)
+        and its notes and sources (<code>NOTES.md</code>) into its own job folder. Review the result, refine it with follow-up prompts,
+        then send it to the Train tab with the classes prefilled.</p>
+      <div class="steps">
+        <div class="step" id="c-step0"><h3><span class="n">0</span>Claude Code <i class="info" data-tip="The tab runs the Claude Code CLI on this machine in headless mode. It needs to be logged in for the server's user (or the server started with ANTHROPIC_API_KEY). Runs use your Claude account or API credits.">i</i></h3>
+          <div id="curStatus" class="small">Checking…</div>
+          <button id="curRecheck" type="button" class="secondary" data-tip="Check again after logging in.">Re-check</button></div>
+        <div class="step" id="c-step1"><h3><span class="n">1</span>Prompt <i class="info" data-tip="Say what the classifier should distinguish, the classes (and which one means 'none of the above'), the kind of text, and anything hard you want covered. Claude Code also receives a fixed output contract, so you don't need to describe file formats.">i</i></h3>
+          <label>Start from a template <i class="info" data-tip="Optional starting points. Edit freely; the regulatory one is the shipped worked example.">i</i>
+            <select id="curTemplate"><option value="">blank</option><option value="generic">Customer email triage</option><option value="sentiment">Review sentiment</option><option value="regulatory">Example use case: regulatory assistant replies</option></select></label>
+          <label>What should Claude Code research and build? <textarea id="curPrompt" rows="6" placeholder="e.g. Build a dataset of short support emails labelled billing, technical_issue, account_access and a negative class other…"></textarea></label>
+          <div class="row wrap">
+            <label>Rows per class <i class="info" data-tip="Target minimum per class. The Train tab needs at least 10 per class and works best with a few hundred.">i</i><input id="curRows" type="number" value="50" min="10" max="2000"></label>
+            <label>Model <i class="info" data-tip="The Claude model Claude Code uses. Default = Claude Code's own default.">i</i><select id="curModel"><option value="">default</option><option value="opus">Opus</option><option value="sonnet">Sonnet</option><option value="fable">Fable</option></select></label>
+            <label>Max turns <i class="info" data-tip="Upper bound on Claude Code's agent steps for this run (each search, fetch or file write is a step).">i</i><input id="curTurns" type="number" value="40" min="5" max="200"></label>
+            <label>Budget (USD) <i class="info" data-tip="Hard spending cap for this run, enforced by Claude Code (--max-budget-usd).">i</i><input id="curBudget" type="number" value="5" min="0.5" max="100" step="0.5"></label>
+          </div>
+          <p class="muted small">Claude Code can search and fetch web pages and read / write files in its job folder only. It cannot run shell commands or touch anything outside that folder.</p>
+          <button id="curStart" type="button" disabled>Start curation</button></div>
+        <div class="step" id="c-step2" hidden><h3><span class="n">2</span>Activity <i class="info" data-tip="Live feed of what Claude Code is doing: searches, pages fetched, files written, and what it says. Cancel stops the run; files written so far are kept.">i</i></h3>
+          <div id="curFeed"></div>
+          <button id="curCancel" type="button" class="secondary" hidden>Cancel</button></div>
+        <div class="step" id="c-step3" hidden><h3><span class="n">3</span>Review and refine <i class="info" data-tip="Checks what was written: every label defined, exactly one negative class, rows per class, duplicates, blocked names. Refine with a follow-up prompt (same Claude Code session, same folder), then send to Train.">i</i></h3>
+          <div id="curResult"></div>
+          <div id="curFollowRow" hidden>
+            <label>Follow-up prompt <i class="info" data-tip="Continues the same Claude Code session in the same folder, e.g. 'add 40 harder negatives', 'rebalance to 60 per class', 'remove rows that mention prices'.">i</i><textarea id="curFollow" rows="3" placeholder="e.g. Add 40 more hard cases between billing and account_access, and rebalance to 60 rows per class."></textarea></label>
+            <button id="curFollowBtn" type="button" class="secondary">Refine</button>
+          </div></div>
+      </div>
     </section>
 
     <section id="trainView" class="about" hidden>
@@ -203,7 +240,8 @@
     </div>
   </form>
 </template>
-<script src="/static/app.js?v=13"></script>
-<script src="/static/train.js?v=6"></script>
+<script src="/static/app.js?v=14"></script>
+<script src="/static/train.js?v=7"></script>
+<script src="/static/curate.js?v=1"></script>
 </body>
 </html>

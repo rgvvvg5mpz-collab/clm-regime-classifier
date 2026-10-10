@@ -174,3 +174,13 @@ label.check { flex-wrap: nowrap; } label.check input { flex-basis: auto; }
 .row.wrap label > input[type=number] { flex-basis: 100%; }
 #convSection[hidden], #chatOnly[hidden], #sideHint[hidden] { display: none; }
 #convSection { display: flex; flex-direction: column; gap: 12px; }
+
+/* data curation */
+#curateView[hidden] { display: none; }
+ol.feed { list-style: none; margin: 8px 0; padding: 0; max-height: 320px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+ol.feed li { display: grid; grid-template-columns: 22px 1fr; gap: 6px; padding: 5px 10px; border-bottom: 1px solid var(--border); font-size: 12.5px; }
+ol.feed li:last-child { border-bottom: 0; }
+ol.feed .ico { color: var(--muted); text-align: center; }
+ol.feed li.tool .ico { color: var(--brand); } ol.feed li.done .ico { color: var(--ok); } ol.feed li.error, ol.feed li.denied { color: var(--flag); }
+ol.feed li.say { color: var(--text); font-style: italic; }
+pre.notes { white-space: pre-wrap; font-size: 12px; background: var(--code-bg); padding: 10px; border-radius: 8px; max-height: 280px; overflow: auto; }

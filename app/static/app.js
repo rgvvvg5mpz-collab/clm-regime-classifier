@@ -336,7 +336,8 @@ function showView(id) {
   $("convSection").hidden = !chat; $("chatOnly").hidden = !chat;
   const hint = $("sideHint");
   hint.hidden = chat;
-  hint.textContent = { trainView: "Train a model here; it appears in the Screening model list when done.",
+  hint.textContent = { curateView: "Curated datasets go to the Train tab; the model selected above is not used here.",
+                       trainView: "Train a model here; it appears in the Screening model list when done.",
                        postView: "Post-training starts from the model selected above.",
                        aboutView: "The diagram describes the model selected above." }[id] || "";
   if (id === "aboutView" && state.config) renderAbout();

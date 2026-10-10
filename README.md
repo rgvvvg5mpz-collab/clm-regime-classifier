@@ -1,6 +1,6 @@
 # System 1 Workbench: contrastive-loss classifiers
 
-A workbench for training, using and refining **System 1 classifiers** built on [CLM-8B](https://huggingface.co/Contrastive-LM/CLM-v0.1-8B): two small heads trained with a contrastive loss over class descriptions, on a frozen Qwen3-8B encoder. Upload labelled text, define your classes, train in about a minute, use the model in a screened chat, flag mistakes, and fold the corrections back in as a new, gated, versioned model. The chat UI (`app/`) has four tabs: Train, Chat & flag, Post-train, and a reference tab for the selected model's classes; any registry model can be selected from the sidebar.
+A workbench for training, using and refining **System 1 classifiers** built on [CLM-8B](https://huggingface.co/Contrastive-LM/CLM-v0.1-8B): two small heads trained with a contrastive loss over class descriptions, on a frozen Qwen3-8B encoder. Upload labelled text, define your classes, train in about a minute, use the model in a screened chat, flag mistakes, and fold the corrections back in as a new, gated, versioned model. The chat UI (`app/`) has five tabs: **0 Data curation** (prompt Claude Code to research a topic and write a labelled dataset), **1 Train**, **2 Chat & flag**, **3 Post-train**, and a reference tab for the selected model's classes; any registry model can be selected from the sidebar. Data curation needs the Claude Code CLI logged in on the server machine (`claude /login`).
 
 ## The worked example: a regulatory regime classifier
 

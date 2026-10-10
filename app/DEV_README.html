@@ -55,6 +55,25 @@ an OpenAI-compatible one.</p>
 from the checkpoint (<code>/api/config</code> → <code>labels</code>, <code>unit_classes</code>), so the verdict chips, the
 flag form and the scope note adapt automatically.</p>
 
+<h2>1a. Data curation tab (step 0)</h2>
+<p>Runs the <b>Claude Code CLI</b> headlessly on the server to research a topic and write a labelled dataset from a prompt.
+Each run gets its own folder <code>app/data/curation/&lt;job&gt;/</code>; Claude Code is given a fixed output contract
+(<code>dataset.jsonl</code> rows of text / label / speaker / source / rationale, <code>classes.json</code> with one description per
+class and exactly one negative class, <code>NOTES.md</code> with sources and judgement calls). Tools are limited to WebSearch,
+WebFetch, Read, Write, Edit, Glob and Grep (no shell), the permission mode is <code>acceptEdits</code> so writes outside the job
+folder are refused, MCP servers are not loaded (<code>--strict-mcp-config</code>), and each run has a turn limit and a dollar cap
+(<code>--max-budget-usd</code>). The tab streams a live activity feed, validates what was written, supports follow-up prompts that
+resume the same session in the same folder, and <b>Send to Train</b> stages the dataset on the Train tab with the class table
+prefilled.</p>
+<p><b>Setup.</b> The CLI is auto-detected (<code>CLAUDE_CODE_BIN</code>, <code>curation.claude_bin</code> in config.yaml,
+<code>claude</code> on PATH, then the newest copy bundled with the Claude desktop app). It must be logged in for the server's user:
+run <code>claude /login</code> once in a terminal (or start the server with <code>ANTHROPIC_API_KEY</code>). The tab shows the
+exact command when it is not. Offline testing: <code>CLAUDE_CODE_BIN=app/mock_claude_code.py</code> (launch config
+<code>chat-ui-mock-curation</code>) emits the same event stream and writes a small sentiment dataset.</p>
+<p><b>Caution.</b> Claude Code reads web pages, which can contain instructions aimed at it; the tool restrictions above limit what
+such text could make it do, and every dataset is reviewed in the tab before it is used. Runs spend your Claude account or API
+credits.</p>
+
 <h2>1b. Train and Post-train tabs</h2>
 <p><b>Train</b> builds a fresh model from an uploaded dataset in five gated steps: upload (CSV/JSONL with <code>text</code>,
 <code>label</code>, optional <code>speaker</code> and <code>split</code>) → define the classes (display name, the
@@ -119,6 +138,10 @@ replay mode it also sends <code>scripted_reply</code> (the transcript's assistan
 <tr><td><code>POST /api/warmup</code></td><td><code>{}</code></td><td>loads the classifier; <code>{seconds}</code></td></tr>
 <tr><td><code>POST /api/classify</code></td><td><code>{texts: [..], unit?}</code></td><td>list of <code>Prediction</code></td></tr>
 <tr><td><code>POST /api/chat</code></td><td><code>{session_id, provider{provider: scripted|anthropic|openai_compatible, model, base_url?, api_key?, api_key_env?, max_tokens?}, history[], message, system?, scripted_reply?, expected?}</code></td><td>the logged turn (verdicts, and <code>expected</code> when supplied); <code>502</code> with a readable message on LLM errors</td></tr>
+<tr><td><code>GET /api/curate/status</code></td><td>-</td><td>CLI path, version, logged-in state, setup help</td></tr>
+<tr><td><code>POST /api/curate/start</code></td><td><code>{prompt, model?, max_turns, budget_usd, rows_per_class, resume_of?}</code></td><td>curation job (409 if one is running)</td></tr>
+<tr><td><code>GET /api/curate/jobs[/{id}]</code></td><td>-</td><td>status, activity events, cost, turns, validated summary</td></tr>
+<tr><td><code>POST /api/curate/jobs/{id}/cancel</code>, <code>/to_train</code>; <code>GET …/download</code></td><td>-</td><td>stop the run; stage as a Train upload with prefilled spec; download dataset.jsonl</td></tr>
 <tr><td><code>POST /api/train/upload</code></td><td>multipart <code>file</code></td><td>upload summary (labels, counts, speaker/split presence, suggested negative)</td></tr>
 <tr><td><code>POST /api/train/validate</code></td><td><code>{upload_id, spec{label: {name, description, speaker, negative}}}</code></td><td>errors, warnings, split counts; writes <code>clean.jsonl</code></td></tr>
 <tr><td><code>POST /api/train/start</code></td><td><code>{name, epochs, lr, init, upload_id}</code> or <code>{post_train: true, use_feedback, extra_upload_id?, include_base_data, oversample, init}</code></td><td>job; 409 if one is running</td></tr>

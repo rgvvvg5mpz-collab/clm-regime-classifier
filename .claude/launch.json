@@ -34,6 +34,20 @@
         "8720"
       ],
       "port": 8720
+    },
+    {
+      "name": "chat-ui-mock-curation",
+      "runtimeExecutable": "/usr/bin/env",
+      "runtimeArgs": [
+        "CLAUDE_CODE_BIN=app/mock_claude_code.py",
+        ".venv/bin/python",
+        "-m",
+        "uvicorn",
+        "app.server:app",
+        "--port",
+        "8710"
+      ],
+      "port": 8710
     }
   ]
 }

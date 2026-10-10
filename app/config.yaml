@@ -54,3 +54,10 @@ classifier:
 storage:
   turns: app/data/turns.jsonl         # every screened turn
   feedback: app/data/feedback.jsonl   # user-flagged false positives / false negatives
+
+curation:
+  # Claude Code CLI used by the Data curation tab. Empty = auto-detect (CLAUDE_CODE_BIN env, `claude`
+  # on PATH, then the newest copy bundled with the Claude desktop app). It must be logged in
+  # (`claude /login`) or the server started with ANTHROPIC_API_KEY. For offline testing point
+  # it at app/mock_claude_code.py.
+  claude_bin: ""
